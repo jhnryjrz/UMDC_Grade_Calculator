@@ -213,6 +213,14 @@ const STYLES = `
     border-color: rgba(180,148,90,0.6); background: rgba(180,148,90,0.06);
     box-shadow: 0 0 0 3px rgba(180,148,90,0.1);
   }
+  .gc-confirm-btn {
+    background: #b4945a; border: none; border-radius: 12px;
+    width: 157px; height: 48px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #080c12;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s; flex-shrink: 0;
+}
+  .gc-confirm-btn:hover { background: #c9a96e; transform: scale(1.07); box-shadow: 0 4px 20px rgba(180,148,90,0.4); }
+  .gc-confirm-btn:active { transform: scale(0.97); }
   .gc-add-btn {
     background: #b4945a; border: none; border-radius: 12px;
     width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
@@ -384,7 +392,6 @@ function fileToBase64(file: File): Promise<string> {
    COMPONENT
 ================================================================ */
 export default function GradeCalculator() {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   /* Grade list */
   const [gradeList, setGradeList] = useState<GradeEntry[]>([]);
   const [grade, setGrade] = useState("");
@@ -403,6 +410,7 @@ export default function GradeCalculator() {
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [apikey, setApiKey] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ── Validation ── */
@@ -511,7 +519,7 @@ export default function GradeCalculator() {
         | "image/webp";
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apikey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -711,6 +719,8 @@ Rules:
           </>
         )}
 
+
+
         {/* Status banner */}
         {scanStatus && (
           <div className={`gc-status ${scanStatus.type}`}>
@@ -734,6 +744,24 @@ Rules:
 
         {/* ── Manual input ── */}
         <div className="gc-input-section">
+          <div className="gc-label-row">
+            <span className="gc-col-label">API KEY</span>
+          </div>
+          <div className="gc-input-row">
+            <input
+              className="gc-input"
+              type="text"
+              placeholder="e.g. Alza..."
+              value={apikey}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+              }}
+              onKeyDown={(e) => e.key === "Enter" && addToList()}
+            />
+            <button
+            className="gc-confirm-btn"
+            onClick={() => setApiKey(apikey)}>Confirm</button>
+          </div>
           <div className="gc-label-row">
             <span className="gc-col-label">Subject Grade</span>
             <span className="gc-col-label">Units</span>
