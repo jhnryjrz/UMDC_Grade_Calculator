@@ -384,6 +384,7 @@ function fileToBase64(file: File): Promise<string> {
    COMPONENT
 ================================================================ */
 export default function GradeCalculator() {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   /* Grade list */
   const [gradeList, setGradeList] = useState<GradeEntry[]>([]);
   const [grade, setGrade] = useState("");
@@ -510,7 +511,7 @@ export default function GradeCalculator() {
         | "image/webp";
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
