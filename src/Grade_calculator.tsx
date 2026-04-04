@@ -40,333 +40,6 @@ interface ExtractedEntry {
 }
 
 /* ================================================================
-   STYLES
-================================================================ */
-const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,400&family=DM+Sans:wght@300;400;500;600&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  .gc-root {
-    min-height: 100vh;
-    background: #080c12;
-    background-image:
-      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(180,148,90,0.13) 0%, transparent 60%),
-      url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23b4945a' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    font-family: 'DM Sans', sans-serif;
-    color: #e8e0d0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 48px 20px 80px;
-  }
-
-  /* Header */
-  .gc-header { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 40px; }
-  .gc-badge {
-    display: flex; align-items: center; gap: 7px;
-    background: rgba(180,148,90,0.1); border: 1px solid rgba(180,148,90,0.25);
-    border-radius: 100px; padding: 5px 14px 5px 10px;
-    font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
-    text-transform: uppercase; color: #b4945a;
-  }
-  .gc-title {
-    font-family: 'Fraunces', Georgia, serif;
-    font-size: clamp(36px, 6vw, 58px); font-weight: 700; color: #f0e8d8;
-    letter-spacing: -0.02em; line-height: 1.05; text-align: center;
-  }
-  .gc-title em { font-style: italic; color: #b4945a; }
-  .gc-subtitle { font-size: 13px; color: rgba(232,224,208,0.4); letter-spacing: 0.03em; }
-
-  /* Card */
-  .gc-card {
-    width: 100%; max-width: 520px;
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 20px; padding: 28px; backdrop-filter: blur(12px);
-  }
-
-  /* ── Scan zone ── */
-  .gc-scan-zone {
-    position: relative;
-    border: 1.5px dashed rgba(180,148,90,0.3); border-radius: 16px;
-    padding: 26px 20px 22px;
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-    margin-bottom: 20px; overflow: hidden;
-    background: rgba(180,148,90,0.025);
-  }
-  .gc-scan-zone::before, .gc-scan-zone::after {
-    content: ''; position: absolute;
-    width: 18px; height: 18px; border-color: rgba(180,148,90,0.35); border-style: solid;
-    transition: border-color 0.2s;
-  }
-  .gc-scan-zone::before { top: 8px; left: 8px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
-  .gc-scan-zone::after  { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; }
-  .gc-scan-zone:hover, .gc-scan-zone.drag-over {
-    border-color: rgba(180,148,90,0.65); background: rgba(180,148,90,0.07);
-    box-shadow: 0 0 0 4px rgba(180,148,90,0.06);
-  }
-  .gc-scan-zone:hover::before, .gc-scan-zone:hover::after,
-  .gc-scan-zone.drag-over::before, .gc-scan-zone.drag-over::after {
-    border-color: rgba(180,148,90,0.8);
-  }
-  .gc-scan-zone input[type="file"] {
-    position: absolute; inset: 0; opacity: 0; cursor: pointer;
-    width: 100%; height: 100%; font-size: 0;
-  }
-  .gc-scan-icon {
-    width: 48px; height: 48px; border-radius: 14px;
-    background: rgba(180,148,90,0.1); border: 1px solid rgba(180,148,90,0.2);
-    display: flex; align-items: center; justify-content: center; color: #b4945a; margin-bottom: 2px;
-  }
-  .gc-ai-pill {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-    color: #b4945a; background: rgba(180,148,90,0.1); border: 1px solid rgba(180,148,90,0.22);
-    border-radius: 100px; padding: 3px 10px;
-  }
-  .gc-scan-title { font-size: 14px; font-weight: 600; color: #f0e8d8; text-align: center; }
-  .gc-scan-hint {
-    font-size: 11px; color: rgba(232,224,208,0.3);
-    text-align: center; line-height: 1.65;
-  }
-
-  /* Image preview */
-  .gc-preview-wrap {
-    position: relative; margin-bottom: 12px;
-    border-radius: 14px; overflow: hidden; border: 1px solid rgba(180,148,90,0.22);
-  }
-  .gc-preview-img { width: 100%; max-height: 200px; object-fit: cover; display: block; }
-  .gc-preview-overlay {
-    position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(8,12,18,0.9) 0%, transparent 55%);
-    display: flex; align-items: flex-end; padding: 12px 14px; gap: 8px;
-  }
-  .gc-preview-name {
-    font-size: 11px; color: rgba(232,224,208,0.6);
-    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .gc-preview-clear {
-    background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.25);
-    border-radius: 7px; width: 26px; height: 26px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: #f87171; transition: background 0.15s; flex-shrink: 0;
-  }
-  .gc-preview-clear:hover { background: rgba(248,113,113,0.28); }
-
-  /* Scan action button */
-  .gc-scan-btn {
-    width: 100%; background: rgba(180,148,90,0.1); border: 1.5px solid rgba(180,148,90,0.35);
-    border-radius: 13px; padding: 13px 16px;
-    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; color: #c9a96e;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-    transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.2s;
-    margin-bottom: 16px; letter-spacing: 0.01em;
-  }
-  .gc-scan-btn:hover:not(:disabled) {
-    background: rgba(180,148,90,0.18); border-color: rgba(180,148,90,0.65);
-    transform: translateY(-1px); box-shadow: 0 4px 20px rgba(180,148,90,0.18);
-  }
-  .gc-scan-btn:active:not(:disabled) { transform: translateY(0); }
-  .gc-scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .gc-spin { animation: spin 0.85s linear infinite; }
-
-  /* Status banner */
-  .gc-status {
-    border-radius: 11px; padding: 11px 14px; font-size: 12px;
-    display: flex; align-items: flex-start; gap: 9px;
-    margin-bottom: 18px; line-height: 1.55;
-  }
-  .gc-status.success { background: rgba(74,222,128,0.07); border: 1px solid rgba(74,222,128,0.2); color: #86efac; }
-  .gc-status.error   { background: rgba(248,113,113,0.07); border: 1px solid rgba(248,113,113,0.2); color: #fca5a5; }
-  .gc-status-icon { flex-shrink: 0; margin-top: 1px; }
-
-  /* Or divider */
-  .gc-or { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
-  .gc-or-line { flex: 1; height: 1px; background: rgba(255,255,255,0.07); }
-  .gc-or-text {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-    text-transform: uppercase; color: rgba(232,224,208,0.22); white-space: nowrap;
-  }
-
-  /* Manual input */
-  .gc-input-section { margin-bottom: 24px; }
-  .gc-label-row {
-    display: grid; grid-template-columns: 1fr 100px 48px;
-    gap: 10px; margin-bottom: 6px; padding: 0 2px;
-  }
-  .gc-col-label {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-    text-transform: uppercase; color: rgba(232,224,208,0.3);
-  }
-  .gc-input-row { display: grid; grid-template-columns: 1fr 100px 48px; gap: 10px; }
-  .gc-input {
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px; padding: 13px 16px;
-    font-family: 'DM Sans', sans-serif; font-size: 15px; color: #f0e8d8;
-    outline: none; transition: border-color 0.2s, background 0.2s, box-shadow 0.2s; width: 100%;
-  }
-  .gc-input::placeholder { color: rgba(232,224,208,0.18); }
-  .gc-input:focus {
-    border-color: rgba(180,148,90,0.6); background: rgba(180,148,90,0.06);
-    box-shadow: 0 0 0 3px rgba(180,148,90,0.1);
-  }
-  .gc-confirm-btn {
-    background: #b4945a; border: none; border-radius: 12px;
-    width: 157px; height: 48px; display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: #080c12;
-    transition: background 0.2s, transform 0.15s, box-shadow 0.2s; flex-shrink: 0;
-}
-  .gc-confirm-btn:hover { background: #c9a96e; transform: scale(1.07); box-shadow: 0 4px 20px rgba(180,148,90,0.4); }
-  .gc-confirm-btn:active { transform: scale(0.97); }
-  .gc-add-btn {
-    background: #b4945a; border: none; border-radius: 12px;
-    width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: #080c12;
-    transition: background 0.2s, transform 0.15s, box-shadow 0.2s; flex-shrink: 0;
-  }
-  .gc-add-btn:hover { background: #c9a96e; transform: scale(1.07); box-shadow: 0 4px 20px rgba(180,148,90,0.4); }
-  .gc-add-btn:active { transform: scale(0.97); }
-  .gc-field-err {
-    font-size: 12px; color: #f87171; margin-top: 8px;
-    display: flex; align-items: center; gap: 5px;
-  }
-
-  /* Grade list */
-  .gc-section-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 0 0 20px; }
-  .gc-section-label {
-    display: flex; align-items: center;
-    font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; color: rgba(232,224,208,0.28); margin-bottom: 12px;
-  }
-  .gc-count-chip {
-    display: inline-flex; align-items: center; justify-content: center;
-    background: rgba(180,148,90,0.15); color: #b4945a;
-    border-radius: 100px; font-size: 10px; font-weight: 700;
-    width: 19px; height: 19px; margin-left: 7px;
-  }
-  .gc-list-header {
-    display: grid; grid-template-columns: 1fr 90px 80px;
-    gap: 10px; padding: 0 4px 10px; margin-bottom: 4px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  .gc-list-col {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-    text-transform: uppercase; color: rgba(232,224,208,0.28);
-  }
-  .gc-list-col.right { text-align: right; }
-  .gc-list {
-    max-height: 290px; overflow-y: auto;
-    display: flex; flex-direction: column; gap: 8px; padding-right: 3px;
-  }
-  .gc-list::-webkit-scrollbar { width: 3px; }
-  .gc-list::-webkit-scrollbar-track { background: transparent; }
-  .gc-list::-webkit-scrollbar-thumb { background: rgba(180,148,90,0.3); border-radius: 3px; }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-8px) scale(0.99); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  .gc-entry {
-    display: grid; grid-template-columns: 1fr 90px 80px;
-    gap: 10px; align-items: center;
-    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 12px; padding: 11px 14px;
-    animation: slideIn 0.22s cubic-bezier(0.16,1,0.3,1) forwards;
-    transition: border-color 0.18s, background 0.18s;
-  }
-  .gc-entry:hover { background: rgba(180,148,90,0.05); border-color: rgba(180,148,90,0.18); }
-  .gc-entry.ai { border-left: 2.5px solid rgba(180,148,90,0.5); background: rgba(180,148,90,0.04); }
-  .gc-entry-grade {
-    font-family: 'Fraunces', Georgia, serif; font-size: 20px; font-weight: 600;
-    color: #f0e8d8; letter-spacing: -0.01em;
-    display: flex; align-items: center; gap: 6px;
-  }
-  .gc-ai-dot {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: #b4945a; flex-shrink: 0; opacity: 0.7;
-  }
-  .gc-entry-unit { font-size: 13px; color: rgba(232,224,208,0.5); }
-  .gc-entry-actions { display: flex; gap: 6px; justify-content: flex-end; }
-  .gc-icon-btn {
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 8px; width: 30px; height: 30px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: rgba(232,224,208,0.4); transition: all 0.14s;
-  }
-  .gc-icon-btn:hover { color: #f0e8d8; background: rgba(255,255,255,0.1); }
-  .gc-icon-btn.danger:hover { color: #f87171; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.2); }
-  .gc-icon-btn.confirm:hover { color: #4ade80; background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.2); }
-  .gc-edit-input {
-    background: rgba(180,148,90,0.08); border: 1px solid rgba(180,148,90,0.35);
-    border-radius: 8px; padding: 5px 10px;
-    font-family: 'Fraunces', Georgia, serif; font-size: 16px; font-weight: 600;
-    color: #f0e8d8; outline: none; width: 100%;
-  }
-  .gc-edit-input-sm {
-    background: rgba(180,148,90,0.08); border: 1px solid rgba(180,148,90,0.35);
-    border-radius: 8px; padding: 5px 10px;
-    font-family: 'DM Sans', sans-serif; font-size: 13px;
-    color: rgba(232,224,208,0.9); outline: none; width: 100%;
-  }
-  .gc-empty {
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 10px; padding: 36px 20px; color: rgba(232,224,208,0.2);
-  }
-  .gc-empty-icon {
-    width: 46px; height: 46px; border: 1px dashed rgba(180,148,90,0.2);
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    color: rgba(180,148,90,0.3);
-  }
-  .gc-empty p { font-size: 13px; }
-
-  /* Calculate button */
-  .gc-calc-btn {
-    width: 100%; background: linear-gradient(135deg, #b4945a 0%, #c9a96e 100%);
-    border: none; border-radius: 14px; padding: 15px;
-    font-family: 'Fraunces', Georgia, serif; font-size: 17px; font-weight: 600;
-    color: #080c12; cursor: pointer;
-    transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
-    letter-spacing: -0.01em; margin-top: 20px;
-  }
-  .gc-calc-btn:hover:not(:disabled) {
-    opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 32px rgba(180,148,90,0.38);
-  }
-  .gc-calc-btn:active:not(:disabled) { transform: translateY(0); }
-  .gc-calc-btn:disabled { opacity: 0.25; cursor: not-allowed; }
-
-  /* Result */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(18px) scale(0.97); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  .gc-result {
-    width: 100%; max-width: 520px; margin-top: 16px;
-    background: rgba(180,148,90,0.07); border: 1px solid rgba(180,148,90,0.25);
-    border-radius: 20px; padding: 34px 28px 28px;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards;
-  }
-  .gc-result-eyebrow {
-    font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
-    text-transform: uppercase; color: rgba(180,148,90,0.65); margin-bottom: 6px;
-  }
-  .gc-result-gpa {
-    font-family: 'Fraunces', Georgia, serif;
-    font-size: clamp(58px, 14vw, 88px); font-weight: 700;
-    line-height: 1; letter-spacing: -0.03em; color: #f0e8d8;
-  }
-  .gc-result-remark {
-    font-size: 13px; font-weight: 600; margin-top: 12px;
-    padding: 5px 16px; border-radius: 100px;
-    background: rgba(180,148,90,0.1); border: 1px solid rgba(180,148,90,0.18);
-  }
-  .gc-result-meta { margin-top: 8px; font-size: 12px; color: rgba(232,224,208,0.3); }
-`;
-
-/* ================================================================
    HELPERS
 ================================================================ */
 function getGPARemark(gpa: number): GPARemark {
@@ -419,7 +92,7 @@ export default function GradeCalculator() {
       uNum = parseFloat(u);
     if (!g || !u) return "Both fields are required.";
     if (isNaN(gNum) || isNaN(uNum)) return "Enter valid numbers.";
-    if (gNum < 1.0 || gNum > 4.0) return "Grade must be between 1.0 and .0.";
+    if (gNum < 1.0 || gNum > 4.0) return "Grade must be between 1.0 and 4.0.";
     if (uNum <= 0 || uNum > 12) return "Units must be between 1 and 12.";
     return null;
   };
@@ -505,21 +178,11 @@ export default function GradeCalculator() {
 
     try {
       const rawBase64 = await fileToBase64(imageFile);
-
-      // FIX 1: Strip the "data:image/png;base64," prefix if it exists!
-      // Gemini API strictly expects ONLY the raw base64 string.
-      const base64 = rawBase64.includes(",")
-        ? rawBase64.split(",")[1]
-        : rawBase64;
-
-      const mediaType = imageFile.type as
-        | "image/jpeg"
-        | "image/png"
-        | "image/gif"
-        | "image/webp";
+      const base64 = rawBase64.includes(",") ? rawBase64.split(",")[1] : rawBase64;
+      const mediaType = imageFile.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apikey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apikey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -565,11 +228,7 @@ Rules:
       );
 
       const data = await res.json();
-      console.log("Full API Response:", data); // DEBUG LOG 1
-
       const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
-      console.log("Extracted AI Text:", raw); // DEBUG LOG 2
-
       const cleanRaw = raw.replace(/```json|```/g, "").trim();
 
       let entries: ExtractedEntry[];
@@ -623,10 +282,7 @@ Rules:
     } catch (err: unknown) {
       setScanStatus({
         type: "error",
-        msg:
-          err instanceof Error
-            ? err.message
-            : "Something went wrong. Please try again.",
+        msg: err instanceof Error ? err.message : "Something went wrong. Please try again.",
       });
     } finally {
       setScanning(false);
@@ -635,80 +291,73 @@ Rules:
 
   const remark = gpa ? getGPARemark(parseFloat(gpa)) : null;
 
-  /* ================================================================
-     RENDER
-  ================================================================ */
   return (
-    <div className="gc-root">
-      <style>{STYLES}</style>
-
-      {/* Header */}
-      <header className="gc-header">
-        <div className="gc-badge">
+    <div className="min-h-screen bg-bg-dark bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,_rgba(180,148,90,0.13)_0%,_transparent_60%)] bg-[image:var(--background-image-pattern)] flex flex-col items-center px-5 py-12 pb-20 font-dm-sans text-[#e8e0d0] relative">
+      <header className="flex flex-col items-center gap-3 mb-10">
+        <div className="flex items-center gap-[7px] bg-gold/10 border border-gold/25 rounded-full px-3.5 pl-2.5 py-1 text-[11px] font-medium tracking-[0.08em] uppercase text-gold">
           <GraduationCap size={12} /> UMDC GRADING SYSTEM
         </div>
-        <h1 className="gc-title">
+        <h1 className="font-fraunces text-4xl sm:text-5xl lg:text-6xl font-bold text-text-ivory tracking-tight leading-[1.05] text-center">
           Grade
           <br />
-          <em>Calculator</em>
+          <em className="italic text-gold">Calculator</em>
         </h1>
-        <p className="gc-subtitle">Weighted GPA · 4.0 highest · 1.0 failing</p>
+        <p className="text-[13px] text-text-muted tracking-wide">Weighted GPA · 4.0 highest · 1.0 failing</p>
       </header>
 
-      <div className="gc-card">
-        {/* ── AI Scan zone ── */}
+      <div className="w-full max-w-[520px] bg-white/[0.03] border border-white/[0.08] rounded-[20px] p-7 backdrop-blur-xl">
         {!imagePreview ? (
           <div
-            className={`gc-scan-zone${dragOver ? " drag-over" : ""}`}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
+            className={`group relative border-[1.5px] border-dashed rounded-2xl px-5 pt-[26px] pb-[22px] flex flex-col items-center gap-2.5 cursor-pointer transition-all duration-200 mb-5 overflow-hidden bg-gold/[0.025] 
+              ${dragOver ? "border-gold/65 bg-gold/7 shadow-[0_0_0_4px_rgba(180,148,90,0.06)]" : "border-gold/30"} 
+              hover:border-gold/65 hover:bg-gold/7 hover:shadow-[0_0_0_4px_rgba(180,148,90,0.06)]`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
           >
+            {/* Corner decorations */}
+            <div className={`absolute top-2 left-2 w-[18px] h-[18px] border-t-2 border-l-2 rounded-tl-[3px] transition-colors ${dragOver ? "border-gold/80" : "border-gold/35"} group-hover:border-gold/80`} />
+            <div className={`absolute bottom-2 right-2 w-[18px] h-[18px] border-b-2 border-r-2 rounded-br-[3px] transition-colors ${dragOver ? "border-gold/80" : "border-gold/35"} group-hover:border-gold/80`} />
+            
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-[0]"
               onChange={(e) => handleImageSelect(e.target.files?.[0])}
             />
-            <div className="gc-scan-icon">
-              <ImageUp size={22} />
+            <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center color-gold mb-0.5">
+              <ImageUp size={22} className="text-gold" />
             </div>
-            <span className="gc-ai-pill">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-gold bg-gold/10 border border-gold/[0.22] rounded-full px-2.5 py-0.75">
               <Sparkles size={9} /> AI Powered
             </span>
-            <span className="gc-scan-title">Upload your grade screenshot</span>
-            <span className="gc-scan-hint">
+            <span className="text-sm font-semibold text-text-ivory text-center">Upload your grade screenshot</span>
+            <span className="text-[11px] text-text-muted text-center leading-relaxed">
               Drag & drop or click to browse
               <br />
               CRS · SAIS · MyUSTe · report cards · transcripts
             </span>
           </div>
         ) : (
-          <>
-            <div className="gc-preview-wrap">
-              <img
-                src={imagePreview}
-                className="gc-preview-img"
-                alt="Grade screenshot"
-              />
-              <div className="gc-preview-overlay">
-                <span className="gc-preview-name">{imageFile?.name}</span>
-                <button className="gc-preview-clear" onClick={clearImage}>
+          <div className="flex flex-col gap-3 mb-4">
+            <div className="relative rounded-xl overflow-hidden border border-gold/[0.22]">
+              <img src={imagePreview} className="w-full max-h-[200px] object-cover block" alt="Grade screenshot" />
+              <div className="absolute inset-0 bg-gradient-to-t from-bg-dark/90 via-transparent to-transparent flex items-end p-3.5 gap-2">
+                <span className="text-[11px] text-ivory/60 flex-1 truncate">{imageFile?.name}</span>
+                <button className="bg-red-500/15 border border-red-500/25 rounded-[7px] w-[26px] h-[26px] flex items-center justify-center cursor-pointer text-red-500 transition-colors hover:bg-red-500/[0.28]" onClick={clearImage}>
                   <X size={13} />
                 </button>
               </div>
             </div>
             <button
-              className="gc-scan-btn"
+              className="w-full bg-gold/10 border-[1.5px] border-gold/35 rounded-[13px] p-[13px_16px] font-dm-sans text-[13px] font-semibold text-gold-light cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-gold/[0.18] hover:border-gold/65 hover:-translate-y-[1px] hover:shadow-[0_4px_20px_rgba(180,148,90,0.18)] active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={scanImage}
               disabled={scanning}
             >
               {scanning ? (
                 <>
-                  <Loader2 size={15} className="gc-spin" /> Reading your grades…
+                  <Loader2 size={15} className="animate-spin" /> Reading your grades…
                 </>
               ) : (
                 <>
@@ -716,84 +365,65 @@ Rules:
                 </>
               )}
             </button>
-          </>
+          </div>
         )}
 
-
-
-        {/* Status banner */}
         {scanStatus && (
-          <div className={`gc-status ${scanStatus.type}`}>
-            <span className="gc-status-icon">
-              {scanStatus.type === "success" ? (
-                <Check size={14} />
-              ) : (
-                <AlertCircle size={14} />
-              )}
+          <div className={`p-[11px_14px] rounded-[11px] text-xs flex items-start gap-2.5 mb-4.5 leading-relaxed ${scanStatus.type === "success" ? "bg-green-500/7 border border-green-500/20 text-green-300" : "bg-red-500/7 border border-red-500/20 text-red-300"}`}>
+            <span className="shrink-0 mt-0.5">
+              {scanStatus.type === "success" ? <Check size={14} /> : <AlertCircle size={14} />}
             </span>
             <span>{scanStatus.msg}</span>
           </div>
         )}
 
-        {/* Or divider */}
-        <div className="gc-or">
-          <div className="gc-or-line" />
-          <span className="gc-or-text">or enter manually</span>
-          <div className="gc-or-line" />
+        <div className="flex items-center gap-3 mb-[22px]">
+          <div className="flex-1 h-[1px] bg-white/[0.07]" />
+          <span className="text-[10px] font-semibold tracking-widest uppercase text-white/[0.22] whitespace-nowrap">or enter manually</span>
+          <div className="flex-1 h-[1px] bg-white/[0.07]" />
         </div>
 
-        {/* ── Manual input ── */}
-        <div className="gc-input-section">
-          <div className="gc-label-row">
-            <span className="gc-col-label">API KEY</span>
+        <div className="mb-6">
+          <div className="grid grid-cols-[1fr_100px_48px] gap-2.5 mb-1.5 px-0.5">
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">API KEY</span>
           </div>
-          <div className="gc-input-row">
+          <div className="grid grid-cols-[1fr_157px] gap-2.5 mb-1.5 items-center">
             <input
-              className="gc-input"
+              className="bg-white/5 border border-white/10 rounded-xl p-[13px_16px] font-dm-sans text-[15px] text-text-ivory outline-none transition-all w-full placeholder:text-white/[0.18] focus:border-gold/[0.6] focus:bg-gold/[0.06] focus:shadow-[0_0_0_3px_rgba(180,148,90,0.1)]"
               type="text"
               placeholder="e.g. Alza..."
               value={apikey}
-              onChange={(e) => {
-                setApiKey(e.target.value);
-              }}
+              onChange={(e) => setApiKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addToList()}
             />
-            <button
-            className="gc-confirm-btn"
-            onClick={() => setApiKey(apikey)}>Confirm</button>
+            <button className="bg-gold border-none rounded-xl w-[157px] h-12 flex items-center justify-center cursor-pointer text-bg-dark transition-all hover:bg-gold-light hover:scale-[1.07] hover:shadow-[0_4px_20px_rgba(180,148,90,0.4)] active:scale-[0.97]" onClick={() => setApiKey(apikey)}>Confirm</button>
           </div>
-          <div className="gc-label-row">
-            <span className="gc-col-label">Subject Grade</span>
-            <span className="gc-col-label">Units</span>
+          <div className="grid grid-cols-[1fr_100px_48px] gap-2.5 mb-1.5 px-0.5">
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Subject Grade</span>
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Units</span>
             <span />
           </div>
-          <div className="gc-input-row">
+          <div className="grid grid-cols-[1fr_100px_48px] gap-2.5">
             <input
-              className="gc-input"
+              className="bg-white/5 border border-white/10 rounded-xl p-[13px_16px] font-dm-sans text-[15px] text-text-ivory outline-none transition-all w-full placeholder:text-white/[0.18] focus:border-gold/[0.6] focus:bg-gold/[0.06] focus:shadow-[0_0_0_3px_rgba(180,148,90,0.1)]"
               type="text"
               inputMode="decimal"
               placeholder="e.g. 1.75"
               value={grade}
-              onChange={(e) => {
-                setGrade(e.target.value);
-                setFieldError("");
-              }}
+              onChange={(e) => { setGrade(e.target.value); setFieldError(""); }}
               onKeyDown={(e) => e.key === "Enter" && addToList()}
             />
             <input
-              className="gc-input"
+              className="bg-white/5 border border-white/10 rounded-xl p-[13px_16px] font-dm-sans text-[15px] text-text-ivory outline-none transition-all w-full placeholder:text-white/[0.18] focus:border-gold/[0.6] focus:bg-gold/[0.06] focus:shadow-[0_0_0_3px_rgba(180,148,90,0.1)]"
               type="text"
               inputMode="numeric"
               placeholder="e.g. 3"
               value={unit}
-              onChange={(e) => {
-                setUnit(e.target.value);
-                setFieldError("");
-              }}
+              onChange={(e) => { setUnit(e.target.value); setFieldError(""); }}
               onKeyDown={(e) => e.key === "Enter" && addToList()}
             />
             <button
-              className="gc-add-btn"
+              className="bg-gold border-none rounded-xl w-12 h-12 flex items-center justify-center cursor-pointer text-bg-dark transition-all hover:bg-gold-light hover:scale-[1.07] hover:shadow-[0_4px_20px_rgba(180,148,90,0.4)] active:scale-[0.97]"
               onClick={addToList}
               title="Add subject"
             >
@@ -801,110 +431,92 @@ Rules:
             </button>
           </div>
           {fieldError && (
-            <div className="gc-field-err">
+            <div className="text-xs text-red-400 mt-2 flex items-center gap-1.25">
               <X size={12} /> {fieldError}
             </div>
           )}
         </div>
 
-        <div className="gc-section-divider" />
+        <div className="h-[1px] bg-white/[0.07] mb-5" />
 
-        {/* ── Grade list ── */}
-        <div className="gc-section-label">
+        <div className="flex items-center text-[10px] font-bold tracking-widest uppercase text-white/30 mb-3">
           Subjects
           {gradeList.length > 0 && (
-            <span className="gc-count-chip">{gradeList.length}</span>
+            <span className="inline-flex items-center justify-center bg-gold/15 text-gold rounded-full text-[10px] font-bold w-[19px] h-[19px] ml-[7px]">
+              {gradeList.length}
+            </span>
           )}
         </div>
 
         {gradeList.length > 0 && (
-          <div className="gc-list-header">
-            <span className="gc-list-col">Grade</span>
-            <span className="gc-list-col">Units</span>
-            <span className="gc-list-col right">Actions</span>
+          <div className="grid grid-cols-[1fr_90px_80px] gap-2.5 px-1 pb-2.5 mb-1 border-b border-white/[0.06]">
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Grade</span>
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Units</span>
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30 text-right">Actions</span>
           </div>
         )}
 
-        <div className="gc-list">
+        <div className="max-h-[290px] overflow-y-auto flex flex-col gap-2 pr-0.75 no-scrollbar">
           {gradeList.length === 0 ? (
-            <div className="gc-empty">
-              <div className="gc-empty-icon">
+            <div className="flex flex-col items-center justify-center gap-2.5 py-9 px-5 text-white/20">
+              <div className="w-[46px] h-[46px] border border-dashed border-gold/20 rounded-full flex items-center justify-center text-gold/30">
                 <BookOpen size={20} />
               </div>
-              <p>No subjects added yet.</p>
-              <p style={{ fontSize: 11, opacity: 0.5 }}>
-                Upload a screenshot or enter grades manually
-              </p>
+              <p className="text-[13px]">No subjects added yet.</p>
+              <p className="text-[11px] opacity-50">Upload a screenshot or enter grades manually</p>
             </div>
           ) : (
             gradeList.map((item) => (
               <div
                 key={item.id}
-                className={`gc-entry${item.fromAI ? " ai" : ""}`}
+                className={`grid grid-cols-[1fr_90px_80px] gap-2.5 items-center bg-white/[0.03] border border-white/[0.07] rounded-xl p-[11px_14px] transition-all hover:bg-gold/[0.05] hover:border-gold/20 animate-in fade-in slide-in-from-top-2 duration-200 ${item.fromAI ? "border-l-[2.5px] border-l-gold/50 bg-gold/[0.04]" : ""}`}
               >
-                {/* Grade */}
                 <div>
                   {editingId === item.id ? (
                     <input
-                      className="gc-edit-input"
+                      className="bg-gold/10 border border-gold/35 rounded-lg p-1.5 font-fraunces text-base font-semibold text-text-ivory outline-none w-full"
                       value={editGrade}
                       autoFocus
                       onChange={(e) => setEditGrade(e.target.value)}
                     />
                   ) : (
-                    <span className="gc-entry-grade">
+                    <span className="font-fraunces text-xl font-semibold text-text-ivory tracking-tight flex items-center gap-1.5">
                       {item.grade.toFixed(2)}
-                      {item.fromAI && (
-                        <span className="gc-ai-dot" title="AI scanned" />
-                      )}
+                      {item.fromAI && <span className="w-1.25 h-1.25 rounded-full bg-gold shrink-0 opacity-70" title="AI scanned" />}
                     </span>
                   )}
                 </div>
 
-                {/* Unit */}
                 <div>
                   {editingId === item.id ? (
                     <input
-                      className="gc-edit-input-sm"
+                      className="bg-gold/10 border border-gold/35 rounded-lg p-1.5 font-dm-sans text-[13px] text-text-ivory outline-none w-full"
                       value={editUnit}
                       onChange={(e) => setEditUnit(e.target.value)}
                     />
                   ) : (
-                    <span className="gc-entry-unit">
+                    <span className="text-[13px] text-white/50">
                       {item.unit} {item.unit === 1 ? "unit" : "units"}
                     </span>
                   )}
                 </div>
 
-                {/* Actions */}
-                <div className="gc-entry-actions">
+                <div className="flex gap-1.5 justify-end">
                   {editingId === item.id ? (
                     <>
-                      <button
-                        className="gc-icon-btn confirm"
-                        onClick={() => confirmEdit(item.id)}
-                      >
+                      <button className="bg-white/5 border border-white/[0.08] rounded-lg w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-white/40 transition-colors hover:text-green-400 hover:bg-green-400/10 hover:border-green-400/20" onClick={() => confirmEdit(item.id)}>
                         <Check size={13} />
                       </button>
-                      <button
-                        className="gc-icon-btn danger"
-                        onClick={cancelEdit}
-                      >
+                      <button className="bg-white/5 border border-white/[0.08] rounded-lg w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-white/40 transition-colors hover:text-red-400 hover:bg-red-400/10 hover:border-red-400/20" onClick={cancelEdit}>
                         <X size={13} />
                       </button>
                     </>
                   ) : (
                     <>
-                      <button
-                        className="gc-icon-btn"
-                        onClick={() => startEdit(item)}
-                      >
+                      <button className="bg-white/5 border border-white/[0.08] rounded-lg w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-white/40 transition-colors hover:text-text-ivory hover:bg-white/10" onClick={() => startEdit(item)}>
                         <Pencil size={13} />
                       </button>
-                      <button
-                        className="gc-icon-btn danger"
-                        onClick={() => removeFromList(item.id)}
-                      >
+                      <button className="bg-white/5 border border-white/[0.08] rounded-lg w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-white/40 transition-colors hover:text-red-400 hover:bg-red-400/10 hover:border-red-400/20" onClick={() => removeFromList(item.id)}>
                         <Trash2 size={13} />
                       </button>
                     </>
@@ -915,9 +527,8 @@ Rules:
           )}
         </div>
 
-        {/* Calculate */}
         <button
-          className="gc-calc-btn"
+          className="w-full bg-gradient-to-br from-gold to-gold-light border-none rounded-xl p-[15px] font-fraunces text-[17px] font-semibold text-bg-dark cursor-pointer transition-all tracking-tight mt-5 hover:opacity-90 hover:-translate-y-[1px] hover:shadow-[0_8px_32px_rgba(180,148,90,0.38)] active:translate-y-0 disabled:opacity-25 disabled:cursor-not-allowed"
           onClick={() => calculateGPA()}
           disabled={gradeList.length === 0}
         >
@@ -925,20 +536,18 @@ Rules:
         </button>
       </div>
 
-      {/* ── Result ── */}
       {gpa && remark && (
-        <div className="gc-result">
-          <span className="gc-result-eyebrow">Your Weighted GPA</span>
-          <span className="gc-result-gpa">{gpa}</span>
+        <div className="w-full max-w-[520px] mt-4 bg-gold/[0.07] border border-gold/25 rounded-[20px] p-[34px_28px_28px] flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-4 duration-400 ease-out">
+          <span className="text-[10px] font-bold tracking-widest uppercase text-gold/65 mb-1.5">Your Weighted GPA</span>
+          <span className="font-fraunces text-6xl sm:text-7xl lg:text-8xl font-bold leading-none tracking-tight text-text-ivory">{gpa}</span>
           <span
-            className="gc-result-remark"
+            className="text-[13px] font-semibold mt-3 px-4 py-1.25 rounded-full bg-gold/10 border border-gold/[0.18]"
             style={{ color: remark.color, borderColor: `${remark.color}30` }}
           >
             {remark.label}
           </span>
-          <span className="gc-result-meta">
-            {gradeList.length} subject{gradeList.length !== 1 ? "s" : ""} ·{" "}
-            {gradeList.reduce((s, i) => s + i.unit, 0)} total units
+          <span className="mt-2 text-xs text-white/30">
+            {gradeList.length} subject{gradeList.length !== 1 ? "s" : ""} · {gradeList.reduce((s, i) => s + i.unit, 0)} total units
           </span>
         </div>
       )}
