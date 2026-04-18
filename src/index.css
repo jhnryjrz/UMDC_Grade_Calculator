@@ -3,13 +3,13 @@
 @theme {
   --font-fraunces: "Fraunces", Georgia, serif;
   --font-dm-sans: "DM Sans", sans-serif;
-  
+
   --color-gold: #b4945a;
   --color-gold-light: #c9a96e;
   --color-bg-dark: #080c12;
   --color-text-ivory: #f0e8d8;
-  --color-text-muted: rgba(232,224,208,0.4);
-  
+  --color-text-muted: rgba(232, 224, 208, 0.4);
+
   --background-image-pattern: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23b4945a' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
@@ -22,6 +22,8 @@
 
 /* Hide scrollbar for IE, Edge and Firefox */
 .no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
