@@ -308,23 +308,33 @@ Rules:
       <div className="w-full max-w-[520px] bg-white/[0.03] border border-white/[0.08] rounded-[20px] p-7 backdrop-blur-xl">
         {!imagePreview ? (
           <div
-            className={`group relative border-[1.5px] border-dashed rounded-2xl px-5 pt-[26px] pb-[22px] flex flex-col items-center gap-2.5 cursor-pointer transition-all duration-200 mb-5 overflow-hidden bg-gold/[0.025] 
-              ${dragOver ? "border-gold/65 bg-gold/7 shadow-[0_0_0_4px_rgba(180,148,90,0.06)]" : "border-gold/30"} 
-              hover:border-gold/65 hover:bg-gold/7 hover:shadow-[0_0_0_4px_rgba(180,148,90,0.06)]`}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            className={`group relative border-[1.5px] border-dashed rounded-2xl px-5 pt-[26px] pb-[22px] flex flex-col items-center gap-2.5 transition-all duration-200 mb-5 overflow-hidden bg-gold/[0.025] 
+              ${!apikey ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
+              ${dragOver && apikey ? "border-gold/65 bg-gold/7 shadow-[0_0_0_4px_rgba(180,148,90,0.06)]" : "border-gold/30"} 
+              ${apikey ? "hover:border-gold/65 hover:bg-gold/7 hover:shadow-[0_0_0_4px_rgba(180,148,90,0.06)]" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); if (apikey) setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
+            onDrop={(e) => { if (!apikey) { e.preventDefault(); return; } handleDrop(e); }}
+            onClick={() => {
+              if (!apikey) {
+                setScanStatus({
+                  type: "error",
+                  msg: "Please enter your API Key below first before uploading an image.",
+                });
+              }
+            }}
           >
             {/* Corner decorations */}
-            <div className={`absolute top-2 left-2 w-[18px] h-[18px] border-t-2 border-l-2 rounded-tl-[3px] transition-colors ${dragOver ? "border-gold/80" : "border-gold/35"} group-hover:border-gold/80`} />
-            <div className={`absolute bottom-2 right-2 w-[18px] h-[18px] border-b-2 border-r-2 rounded-br-[3px] transition-colors ${dragOver ? "border-gold/80" : "border-gold/35"} group-hover:border-gold/80`} />
+            <div className={`absolute top-2 left-2 w-[18px] h-[18px] border-t-2 border-l-2 rounded-tl-[3px] transition-colors ${dragOver && apikey ? "border-gold/80" : "border-gold/35"} ${apikey ? "group-hover:border-gold/80" : ""}`} />
+            <div className={`absolute bottom-2 right-2 w-[18px] h-[18px] border-b-2 border-r-2 rounded-br-[3px] transition-colors ${dragOver && apikey ? "border-gold/80" : "border-gold/35"} ${apikey ? "group-hover:border-gold/80" : ""}`} />
             
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full text-[0]"
+              className={`absolute inset-0 opacity-0 w-full h-full text-[0] ${!apikey ? "pointer-events-none" : "cursor-pointer"}`}
               onChange={(e) => handleImageSelect(e.target.files?.[0])}
+              disabled={!apikey}
             />
             <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center color-gold mb-0.5">
               <ImageUp size={22} className="text-gold" />
@@ -332,7 +342,9 @@ Rules:
             <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-gold bg-gold/10 border border-gold/[0.22] rounded-full px-2.5 py-0.75">
               <Sparkles size={9} /> AI Powered
             </span>
-            <span className="text-sm font-semibold text-text-ivory text-center">Upload your grade screenshot</span>
+            <span className="text-sm font-semibold text-text-ivory text-center">
+              {!apikey ? "Enter API Key to use Scanner" : "Upload your grade screenshot"}
+            </span>
             <span className="text-[11px] text-text-muted text-center leading-relaxed">
               Drag & drop or click to browse
               <br />
@@ -353,7 +365,7 @@ Rules:
             <button
               className="w-full bg-gold/10 border-[1.5px] border-gold/35 rounded-[13px] p-[13px_16px] font-dm-sans text-[13px] font-semibold text-gold-light cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-gold/[0.18] hover:border-gold/65 hover:-translate-y-[1px] hover:shadow-[0_4px_20px_rgba(180,148,90,0.18)] active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={scanImage}
-              disabled={scanning}
+              disabled={scanning || !apikey}
             >
               {scanning ? (
                 <>
