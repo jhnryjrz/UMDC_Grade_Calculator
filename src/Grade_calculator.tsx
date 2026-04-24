@@ -12,6 +12,8 @@ import {
   AlertCircle,
   Loader2,
   ScanLine,
+  HelpCircle,
+  Key,
 } from "lucide-react";
 
 /* ================================================================
@@ -84,13 +86,14 @@ export default function GradeCalculator() {
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [apikey, setApiKey] = useState<string>("");
+  const [showApiInstructions, setShowApiInstructions] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ── Validation ── */
   const validate = (g: string, u: string): string | null => {
     const gNum = parseFloat(g),
       uNum = parseFloat(u);
-    if (!g || !u) return "Both fields are required.";
+    if (!g) return "The API key field is required.";
     if (isNaN(gNum) || isNaN(uNum)) return "Enter valid numbers.";
     if (gNum < 1.0 || gNum > 4.0) return "Grade must be between 1.0 and 4.0.";
     if (uNum <= 0 || uNum > 12) return "Units must be between 1 and 12.";
@@ -173,6 +176,7 @@ export default function GradeCalculator() {
   /* ── AI Scan ── */
   const scanImage = async () => {
     if (!imageFile) return;
+    
     setScanning(true);
     setScanStatus(null);
 
@@ -293,6 +297,48 @@ Rules:
 
   return (
     <div className="min-h-screen bg-bg-dark bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,_rgba(180,148,90,0.13)_0%,_transparent_60%)] bg-[image:var(--background-image-pattern)] flex flex-col items-center px-5 py-12 pb-20 font-dm-sans text-[#e8e0d0] relative">
+      <button 
+        onClick={() => setShowApiInstructions(true)}
+        className="absolute top-5 right-5 p-2.5 bg-white/5 border border-white/10 rounded-full text-white/50 hover:text-gold hover:bg-gold/10 hover:border-gold/30 transition-all z-10 shadow-sm"
+        title="How to get API Key"
+      >
+        <HelpCircle size={20} />
+      </button>
+
+      {showApiInstructions && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-bg-dark border border-gold/25 rounded-[20px] w-full max-w-md p-7 relative shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+            <button 
+              onClick={() => setShowApiInstructions(false)}
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <h2 className="font-fraunces text-2xl font-bold text-text-ivory mb-4 flex items-center gap-2.5">
+              <Key size={24} className="text-gold" />
+              Get Google AI Studio API Key
+            </h2>
+            <div className="space-y-4 text-[14px] text-text-muted leading-relaxed">
+              <p>To use the AI grade scanning feature, you need a free API key from Google AI Studio.</p>
+              <ol className="list-decimal list-inside space-y-2.5 ml-1">
+                <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-gold hover:text-gold-light hover:underline transition-colors font-medium">Google AI Studio</a>.</li>
+                <li>Sign in with your Google account.</li>
+                <li>Click on the <strong>"Get API key"</strong> or <strong>"Create API key"</strong> button.</li>
+                <li>Create a new key in a new or existing project.</li>
+                <li>Copy the generated key and paste it into the API KEY input field here.</li>
+              </ol>
+              <p className="text-xs text-white/30 pt-3 border-t border-white/5 mt-5">Note: Your API key is stored locally in your browser and is never sent to our servers.</p>
+            </div>
+            <button 
+              onClick={() => setShowApiInstructions(false)}
+              className="w-full mt-6 bg-gold/10 border border-gold/35 rounded-xl p-[13px] font-dm-sans text-[14px] font-semibold text-gold-light transition-all hover:bg-gold/[0.18] hover:-translate-y-[1px]"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
       <header className="flex flex-col items-center gap-3 mb-10">
         <div className="flex items-center gap-[7px] bg-gold/10 border border-gold/25 rounded-full px-3.5 pl-2.5 py-1 text-[11px] font-medium tracking-[0.08em] uppercase text-gold">
           <GraduationCap size={12} /> UMDC GRADING SYSTEM
