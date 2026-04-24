@@ -186,7 +186,7 @@ export default function GradeCalculator() {
       const mediaType = imageFile.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apikey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apikey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -194,18 +194,19 @@ export default function GradeCalculator() {
             system_instruction: {
               parts: [
                 {
-                  text: `You are an academic grade extraction assistant for Filipino university students.
-The user uploads a photo or screenshot of their grades.
+                  text: `You are an expert academic grade extraction assistant.
+The user will upload a photo or screenshot of their grades.
 
-Extract every subject's final grade and unit count.
-Respond ONLY with a valid JSON array — no markdown, no prose.
-Format: [{"grade": 2.5, "unit": 3.0}, ...]
+Your task is to extract every subject's final grade and unit (credit) count.
+Respond ONLY with a valid JSON array of objects. Do NOT use markdown, code blocks (\`\`\`json), or any conversational text.
+Format Example: [{"grade": 3.5, "unit": 3.0}, {"grade": 4.0, "unit": 2.0}]
 
-Rules:
-- grade: number 1.0–4.0 (Philippine system, 4.0 = highest, 1.0 = failing).
-- unit: positive number ≤ 12.
-- IMPORTANT: If the table has NO column headers (just rows of numbers side-by-side), assume the LEFT column is the Grade and the RIGHT column is the Units.
-- Return ONLY the JSON array.`,
+CRITICAL RULES:
+1. "grade": Must be a number between 1.0 and 4.0.
+2. "unit": Must be a positive number ≤ 12. Both grade and unit often have decimal places (e.g., 3.0, 3.5).
+3. Exclude non-numeric grades (e.g., "INC", "DRP") and text like subject names. Ignore overall GPA/GWA summaries or total units. Extract ONLY individual subject rows.
+4. When you see two numbers at the end of a subject row (or standing alone without headers): The LEFT number is ALWAYS the Grade, and the RIGHT number is ALWAYS the Units.
+5. Return ONLY the raw JSON array.`,
                 },
               ],
             },
