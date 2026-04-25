@@ -446,7 +446,7 @@ CRITICAL RULES:
           <div className="grid grid-cols-[1fr_100px_48px] gap-2.5 mb-1.5 px-0.5">
             <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">API KEY</span>
           </div>
-          <div className="grid grid-cols-[1fr_157px] gap-2.5 mb-1.5 items-center">
+          <div className="mb-1.5">
             <input
               className="bg-white/5 border border-white/10 rounded-xl p-[13px_16px] font-dm-sans text-[15px] text-text-ivory outline-none transition-all w-full placeholder:text-white/[0.18] focus:border-gold/[0.6] focus:bg-gold/[0.06] focus:shadow-[0_0_0_3px_rgba(180,148,90,0.1)]"
               type="text"
@@ -455,7 +455,6 @@ CRITICAL RULES:
               onChange={(e) => setApiKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addToList()}
             />
-            <button className="bg-gold border-none rounded-xl w-[157px] h-12 flex items-center justify-center cursor-pointer text-bg-dark transition-all hover:bg-gold-light hover:scale-[1.07] hover:shadow-[0_4px_20px_rgba(180,148,90,0.4)] active:scale-[0.97]" onClick={() => setApiKey(apikey)}>Confirm</button>
           </div>
           <div className="grid grid-cols-[1fr_100px_48px] gap-2.5 mb-1.5 px-0.5">
             <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Subject Grade</span>
