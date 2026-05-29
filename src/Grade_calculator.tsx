@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import {
   Trash2,
   Pencil,
@@ -37,9 +37,13 @@ interface GPARemark {
 }
 
 interface ExtractedEntry {
+  code?: string;
+  subject?: string;
   grade: number;
   unit: number;
 }
+
+const MAX_IMAGE_UPLOADS = 5;
 
 /* ================================================================
    HELPERS
@@ -63,6 +67,30 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+function getSubjectKey(entry: ExtractedEntry): string | null {
+  const label = `${entry.code ?? ""} ${entry.subject ?? ""}`
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  return label || null;
+}
+
+function dedupeExtractedEntries(entries: ExtractedEntry[]): ExtractedEntry[] {
+  const seen = new Set<string>();
+
+  return entries.filter((entry) => {
+    const subjectKey = getSubjectKey(entry);
+    if (!subjectKey) return true;
+
+    const key = `${subjectKey}|${entry.grade}|${entry.unit}`;
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}
+
 /* ================================================================
    COMPONENT
 ================================================================ */
@@ -80,8 +108,8 @@ export default function GradeCalculator() {
   const [editUnit, setEditUnit] = useState("");
 
   /* Image scan */
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -155,35 +183,59 @@ export default function GradeCalculator() {
   };
 
   /* ── Image select / drag ── */
-  const handleImageSelect = (file: File | undefined) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-    setScanStatus(null);
+  const handleImageSelect = (files: FileList | File[] | null | undefined) => {
+    const uploadedImages = Array.from(files ?? []).filter((file) => file.type.startsWith("image/"));
+    const selectedImages = uploadedImages.slice(0, MAX_IMAGE_UPLOADS);
+
+    if (!selectedImages.length) return;
+
+    imagePreviews.forEach((preview) => URL.revokeObjectURL(preview));
+    setImageFiles(selectedImages);
+    setImagePreviews(selectedImages.map((file) => URL.createObjectURL(file)));
+    setScanStatus(
+      uploadedImages.length > MAX_IMAGE_UPLOADS
+        ? {
+            type: "error",
+            msg: `Only the first ${MAX_IMAGE_UPLOADS} images were selected.`,
+          }
+        : null,
+    );
   };
-  const clearImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    setScanStatus(null);
+  const clearImage = (options?: { preserveStatus?: boolean }) => {
+    imagePreviews.forEach((preview) => URL.revokeObjectURL(preview));
+    setImageFiles([]);
+    setImagePreviews([]);
+    if (!options?.preserveStatus) setScanStatus(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragOver(false);
-    handleImageSelect(e.dataTransfer.files?.[0]);
-  }, []);
+    handleImageSelect(e.dataTransfer.files);
+  };
 
   /* ── AI Scan ── */
   const scanImage = async () => {
-    if (!imageFile) return;
+    if (!imageFiles.length) return;
     
     setScanning(true);
     setScanStatus(null);
 
     try {
-      const rawBase64 = await fileToBase64(imageFile);
-      const base64 = rawBase64.includes(",") ? rawBase64.split(",")[1] : rawBase64;
-      const mediaType = imageFile.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+      const imageParts = await Promise.all(
+        imageFiles.map(async (file) => {
+          const rawBase64 = await fileToBase64(file);
+          const base64 = rawBase64.includes(",") ? rawBase64.split(",")[1] : rawBase64;
+          const mediaType = file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+          return {
+            inline_data: {
+              mime_type: mediaType,
+              data: base64,
+            },
+          };
+        }),
+      );
 
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apikey}`,
@@ -197,29 +249,26 @@ export default function GradeCalculator() {
                   text: `You are an expert academic grade extraction assistant.
 The user will upload a photo or screenshot of their grades.
 
-Your task is to extract every subject's final grade and unit (credit) count.
+Your task is to extract every subject's final grade and unit (credit) count from all uploaded images.
 Respond ONLY with a valid JSON array of objects. Do NOT use markdown, code blocks (\`\`\`json), or any conversational text.
-Format Example: [{"grade": 3.5, "unit": 3.0}, {"grade": 4.0, "unit": 2.0}]
+Format Example: [{"code": "CCE 103/L", "subject": "COMPUTER PROGRAMMING 2", "grade": 3.5, "unit": 3.0}, {"code": "GE 1", "subject": "UNDERSTANDING THE SELF", "grade": 3.0, "unit": 3.0}]
 
 CRITICAL RULES:
-1. "grade": Must be a number between 1.0 and 4.0.
-2. "unit": Must be a positive number ≤ 12. Both grade and unit often have decimal places (e.g., 3.0, 3.5).
-3. Exclude non-numeric grades (e.g., "INC", "DRP") and text like subject names. Ignore overall GPA/GWA summaries or total units. Extract ONLY individual subject rows.
-4. When you see two numbers at the end of a subject row (or standing alone without headers): The LEFT number is ALWAYS the Grade, and the RIGHT number is ALWAYS the Units.
-5. Return ONLY the raw JSON array.`,
+1. "code" is the subject code if visible. "subject" is the subject title if visible.
+2. "grade": Must be a number between 1.0 and 4.0.
+3. "unit": Must be a positive number no greater than 12. Both grade and unit often have decimal places (e.g., 3.0, 3.5).
+4. Exclude non-numeric grades (e.g., "INC", "DRP") and text like subject names. Ignore overall GPA/GWA summaries or total units. Extract ONLY individual subject rows.
+5. When you see two numbers at the end of a subject row (or standing alone without headers): The LEFT number is ALWAYS the Grade, and the RIGHT number is ALWAYS the Units.
+6. When screenshots overlap, the same subject row may appear in multiple images. Return that subject ONLY ONCE.
+7. Return ONLY the raw JSON array.`,
                 },
               ],
             },
             contents: [
               {
                 parts: [
-                  { text: "Extract all grades and units from this image." },
-                  {
-                    inline_data: {
-                      mime_type: mediaType,
-                      data: base64,
-                    },
-                  },
+                  { text: "Extract all grades and units from every uploaded image." },
+                  ...imageParts,
                 ],
               },
             ],
@@ -269,7 +318,10 @@ CRITICAL RULES:
         return;
       }
 
-      const newEntries: GradeEntry[] = valid.map((e, idx) => ({
+      const uniqueValid = dedupeExtractedEntries(valid);
+      const duplicateCount = valid.length - uniqueValid.length;
+
+      const newEntries: GradeEntry[] = uniqueValid.map((e, idx) => ({
         id: Date.now() + idx,
         grade: e.grade,
         unit: e.unit,
@@ -281,9 +333,9 @@ CRITICAL RULES:
 
       setScanStatus({
         type: "success",
-        msg: `Scanned ${valid.length} subject${valid.length !== 1 ? "s" : ""} — GPA calculated automatically below.`,
+        msg: `Scanned ${uniqueValid.length} subject${uniqueValid.length !== 1 ? "s" : ""}${duplicateCount ? ` and skipped ${duplicateCount} duplicate${duplicateCount !== 1 ? "s" : ""}` : ""}. GPA calculated automatically below.`,
       });
-      clearImage();
+      clearImage({ preserveStatus: true });
     } catch (err: unknown) {
       setScanStatus({
         type: "error",
@@ -353,7 +405,7 @@ CRITICAL RULES:
       </header>
 
       <div className="w-full max-w-[520px] bg-white/[0.03] border border-white/[0.08] rounded-[20px] p-7 backdrop-blur-xl">
-        {!imagePreview ? (
+        {!imagePreviews.length ? (
           <div
             className={`group relative border-[1.5px] border-dashed rounded-2xl px-5 pt-[26px] pb-[22px] flex flex-col items-center gap-2.5 transition-all duration-200 mb-5 overflow-hidden bg-gold/[0.025] 
               ${!apikey ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
@@ -379,8 +431,9 @@ CRITICAL RULES:
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
               className={`absolute inset-0 opacity-0 w-full h-full text-[0] ${!apikey ? "pointer-events-none" : "cursor-pointer"}`}
-              onChange={(e) => handleImageSelect(e.target.files?.[0])}
+              onChange={(e) => handleImageSelect(e.target.files)}
               disabled={!apikey}
             />
             <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center color-gold mb-0.5">
@@ -390,7 +443,7 @@ CRITICAL RULES:
               <Sparkles size={9} /> AI Powered
             </span>
             <span className="text-sm font-semibold text-text-ivory text-center">
-              {!apikey ? "Enter API Key to use Scanner" : "Upload your grade screenshot"}
+              {!apikey ? "Enter API Key to use Scanner" : `Upload up to ${MAX_IMAGE_UPLOADS} grade screenshots`}
             </span>
             <span className="text-[11px] text-text-muted text-center leading-relaxed">
               Drag & drop or click to browse
@@ -400,14 +453,19 @@ CRITICAL RULES:
           </div>
         ) : (
           <div className="flex flex-col gap-3 mb-4">
-            <div className="relative rounded-xl overflow-hidden border border-gold/[0.22]">
-              <img src={imagePreview} className="w-full max-h-[200px] object-cover block" alt="Grade screenshot" />
-              <div className="absolute inset-0 bg-gradient-to-t from-bg-dark/90 via-transparent to-transparent flex items-end p-3.5 gap-2">
-                <span className="text-[11px] text-ivory/60 flex-1 truncate">{imageFile?.name}</span>
-                <button className="bg-red-500/15 border border-red-500/25 rounded-[7px] w-[26px] h-[26px] flex items-center justify-center cursor-pointer text-red-500 transition-colors hover:bg-red-500/[0.28]" onClick={clearImage}>
-                  <X size={13} />
-                </button>
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {imagePreviews.map((preview, index) => (
+                <div key={preview} className="relative rounded-xl overflow-hidden border border-gold/[0.22] aspect-[4/3]">
+                  <img src={preview} className="w-full h-full object-cover block" alt={`Grade screenshot ${index + 1}`} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-bg-dark/90 via-transparent to-transparent flex items-end p-2.5">
+                    <span className="text-[10px] text-ivory/70 flex-1 truncate">{imageFiles[index]?.name}</span>
+                  </div>
+                </div>
+              ))}
+              <button className="bg-red-500/15 border border-red-500/25 rounded-xl min-h-[84px] flex flex-col items-center justify-center gap-1 cursor-pointer text-red-400 transition-colors hover:bg-red-500/[0.28]" onClick={() => clearImage()}>
+                <X size={15} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Clear</span>
+              </button>
             </div>
             <button
               className="w-full bg-gold/10 border-[1.5px] border-gold/35 rounded-[13px] p-[13px_16px] font-dm-sans text-[13px] font-semibold text-gold-light cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-gold/[0.18] hover:border-gold/65 hover:-translate-y-[1px] hover:shadow-[0_4px_20px_rgba(180,148,90,0.18)] active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed"
