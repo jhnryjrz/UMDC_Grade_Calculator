@@ -44,6 +44,9 @@ interface ExtractedEntry {
 }
 
 const MAX_IMAGE_UPLOADS = 5;
+const MIN_GRADE = 0;
+const MAX_GRADE = 4;
+const MAX_UNITS = 12;
 
 /* ================================================================
    HELPERS
@@ -91,6 +94,152 @@ function dedupeExtractedEntries(entries: ExtractedEntry[]): ExtractedEntry[] {
   });
 }
 
+function coerceNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return null;
+
+  const parsed = Number.parseFloat(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getValidGradeUnitPair(values: unknown[]): Pick<ExtractedEntry, "grade" | "unit"> | null {
+  const numbers = values
+    .map((value) => coerceNumber(value))
+    .filter((value): value is number => value !== null);
+
+  for (let i = numbers.length - 2; i >= 0; i -= 1) {
+    const grade = numbers[i];
+    const unit = numbers[i + 1];
+
+    if (grade >= MIN_GRADE && grade <= MAX_GRADE && unit > 0 && unit <= MAX_UNITS) {
+      return { grade, unit };
+    }
+  }
+
+  return null;
+}
+
+function normalizeExtractedRow(row: unknown): ExtractedEntry | null {
+  if (Array.isArray(row)) {
+    const pair = getValidGradeUnitPair(row);
+    if (!pair) return null;
+
+    const textValues = row.filter((value): value is string => typeof value === "string");
+    return {
+      code: textValues[0],
+      subject: textValues.slice(1).join(" ") || undefined,
+      ...pair,
+    };
+  }
+
+  if (!isRecord(row)) return null;
+
+  const grade = coerceNumber(
+    row.grade ??
+      row.finalGrade ??
+      row.final_grade ??
+      row.final ??
+      row.mark ??
+      row.rating,
+  );
+  const unit = coerceNumber(
+    row.unit ??
+      row.units ??
+      row.credit ??
+      row.credits ??
+      row.creditUnit ??
+      row.creditUnits ??
+      row.credit_unit ??
+      row.credit_units,
+  );
+
+  if (grade !== null && unit !== null) {
+    return {
+      code: typeof row.code === "string" ? row.code : undefined,
+      subject: typeof row.subject === "string" ? row.subject : undefined,
+      grade,
+      unit,
+    };
+  }
+
+  const pair = getValidGradeUnitPair(Object.values(row));
+  if (!pair) return null;
+
+  return {
+    code: typeof row.code === "string" ? row.code : undefined,
+    subject:
+      typeof row.subject === "string"
+        ? row.subject
+        : typeof row.title === "string"
+          ? row.title
+          : typeof row.course === "string"
+            ? row.course
+            : undefined,
+    ...pair,
+  };
+}
+
+function normalizeExtractedEntries(parsed: unknown): ExtractedEntry[] {
+  const rows = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed) && Array.isArray(parsed.entries)
+      ? parsed.entries
+      : isRecord(parsed) && Array.isArray(parsed.grades)
+        ? parsed.grades
+        : isRecord(parsed) && Array.isArray(parsed.rows)
+          ? parsed.rows
+          : isRecord(parsed) && Array.isArray(parsed.subjects)
+            ? parsed.subjects
+            : isRecord(parsed) && Array.isArray(parsed.courses)
+              ? parsed.courses
+              : isRecord(parsed) && Array.isArray(parsed.results)
+                ? parsed.results
+                : isRecord(parsed) && Array.isArray(parsed.data)
+                  ? parsed.data
+                  : [];
+
+  return rows.flatMap((row) => {
+    const entry = normalizeExtractedRow(row);
+    return entry ? [entry] : [];
+  });
+}
+
+function parseTextEntries(raw: string): ExtractedEntry[] {
+  return raw
+    .split(/\r?\n/)
+    .flatMap((line) => {
+      const matches = [...line.matchAll(/\b\d+(?:\.\d+)?\b/g)];
+      if (matches.length < 2) return [];
+
+      const pair = getValidGradeUnitPair(matches.map((match) => match[0]));
+      return pair ? [pair] : [];
+    });
+}
+
+function parseExtractedEntries(raw: string): ExtractedEntry[] {
+  const cleanRaw = raw.replace(/```(?:json)?|```/gi, "").trim();
+  const candidates = [
+    cleanRaw,
+    cleanRaw.slice(cleanRaw.indexOf("["), cleanRaw.lastIndexOf("]") + 1),
+    cleanRaw.slice(cleanRaw.indexOf("{"), cleanRaw.lastIndexOf("}") + 1),
+  ].filter((candidate) => candidate.length > 1);
+
+  for (const candidate of candidates) {
+    try {
+      const entries = normalizeExtractedEntries(JSON.parse(candidate));
+      if (entries.length) return entries;
+    } catch {
+      // Try the next likely JSON segment.
+    }
+  }
+
+  return parseTextEntries(cleanRaw);
+}
+
 /* ================================================================
    COMPONENT
 ================================================================ */
@@ -121,10 +270,10 @@ export default function GradeCalculator() {
   const validate = (g: string, u: string): string | null => {
     const gNum = parseFloat(g),
       uNum = parseFloat(u);
-    if (!g) return "The API key field is required.";
+    if (!g || !u) return "Enter both grade and units.";
     if (isNaN(gNum) || isNaN(uNum)) return "Enter valid numbers.";
-    if (gNum < 1.0 || gNum > 4.0) return "Grade must be between 1.0 and 4.0.";
-    if (uNum <= 0 || uNum > 12) return "Units must be between 1 and 12.";
+    if (gNum < MIN_GRADE || gNum > MAX_GRADE) return "Grade must be between 0.0 and 4.0.";
+    if (uNum <= 0 || uNum > MAX_UNITS) return "Units must be between 1 and 12.";
     return null;
   };
 
@@ -249,18 +398,21 @@ export default function GradeCalculator() {
                   text: `You are an expert academic grade extraction assistant.
 The user will upload a photo or screenshot of their grades.
 
-Your task is to extract every subject's final grade and unit (credit) count from all uploaded images.
+Your task is to extract every visible subject row's final grade and unit (credit) count from all uploaded images.
 Respond ONLY with a valid JSON array of objects. Do NOT use markdown, code blocks (\`\`\`json), or any conversational text.
 Format Example: [{"code": "CCE 103/L", "subject": "COMPUTER PROGRAMMING 2", "grade": 3.5, "unit": 3.0}, {"code": "GE 1", "subject": "UNDERSTANDING THE SELF", "grade": 3.0, "unit": 3.0}]
 
 CRITICAL RULES:
 1. "code" is the subject code if visible. "subject" is the subject title if visible.
-2. "grade": Must be a number between 1.0 and 4.0.
+2. "grade": Must be a number between 0.0 and 4.0. A 0.0 value is valid when it appears in the grade column.
 3. "unit": Must be a positive number no greater than 12. Both grade and unit often have decimal places (e.g., 3.0, 3.5).
 4. Exclude non-numeric grades (e.g., "INC", "DRP") and text like subject names. Ignore overall GPA/GWA summaries or total units. Extract ONLY individual subject rows.
 5. When you see two numbers at the end of a subject row (or standing alone without headers): The LEFT number is ALWAYS the Grade, and the RIGHT number is ALWAYS the Units.
 6. When screenshots overlap, the same subject row may appear in multiple images. Return that subject ONLY ONCE.
-7. Return ONLY the raw JSON array.`,
+7. For UMDC/student portal screenshots, rows usually look like: code, subject title, grade, units. Extract those rows even when no column headers are visible.
+8. If a screenshot is cropped and only shows the grade/unit columns, still extract every visible row as {"grade": number, "unit": number}. Leave code and subject out.
+9. Do not reject rows just because the subject title is cut off, the browser UI is visible, or a notification overlaps the page.
+10. Return ONLY the raw JSON array.`,
                 },
               ],
             },
@@ -273,29 +425,39 @@ CRITICAL RULES:
               },
             ],
             generationConfig: {
-              maxOutputTokens: 1000,
+              maxOutputTokens: 2048,
               temperature: 0.1,
               responseMimeType: "application/json",
+              responseSchema: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    code: { type: "STRING" },
+                    subject: { type: "STRING" },
+                    grade: { type: "NUMBER" },
+                    unit: { type: "NUMBER" },
+                  },
+                  required: ["grade", "unit"],
+                },
+              },
             },
           }),
         },
       );
 
       const data = await res.json();
-      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
-      const cleanRaw = raw.replace(/```json|```/g, "").trim();
-
-      let entries: ExtractedEntry[];
-      try {
-        entries = JSON.parse(cleanRaw);
-      } catch {
-        throw new Error("Couldn't parse grades. Try a clearer screenshot.");
+      if (!res.ok || data.error) {
+        throw new Error(data.error?.message ?? "The grade scanner could not contact Google AI. Check your API key and try again.");
       }
+
+      const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "[]";
+      const entries = parseExtractedEntries(raw);
 
       if (!Array.isArray(entries) || entries.length === 0) {
         setScanStatus({
           type: "error",
-          msg: "No valid grades found in this image. Make sure the image clearly shows a grade report.",
+          msg: "I could not find grade/unit pairs in this upload. Try adding one full screenshot that shows the subject rows plus the two number columns, or crop only the grade and units columns.",
         });
         return;
       }
@@ -303,23 +465,24 @@ CRITICAL RULES:
       const valid = entries.filter(
         (e) =>
           typeof e.grade === "number" &&
-          e.grade >= 1.0 &&
-          e.grade <= 4.0 &&
+          e.grade >= MIN_GRADE &&
+          e.grade <= MAX_GRADE &&
           typeof e.unit === "number" &&
           e.unit > 0 &&
-          e.unit <= 12,
+          e.unit <= MAX_UNITS,
       );
 
       if (!valid.length) {
         setScanStatus({
           type: "error",
-          msg: "Grades were detected but are outside valid range (1.0–4.0). Check image quality.",
+          msg: "I found numbers, but none matched the expected grade/unit format: grade 0.0 to 4.0 and units 1 to 12.",
         });
         return;
       }
 
       const uniqueValid = dedupeExtractedEntries(valid);
       const duplicateCount = valid.length - uniqueValid.length;
+      const skippedCount = entries.length - valid.length;
 
       const newEntries: GradeEntry[] = uniqueValid.map((e, idx) => ({
         id: Date.now() + idx,
@@ -333,7 +496,7 @@ CRITICAL RULES:
 
       setScanStatus({
         type: "success",
-        msg: `Scanned ${uniqueValid.length} subject${uniqueValid.length !== 1 ? "s" : ""}${duplicateCount ? ` and skipped ${duplicateCount} duplicate${duplicateCount !== 1 ? "s" : ""}` : ""}. GPA calculated automatically below.`,
+        msg: `Scanned ${uniqueValid.length} subject${uniqueValid.length !== 1 ? "s" : ""}${duplicateCount ? ` and skipped ${duplicateCount} duplicate${duplicateCount !== 1 ? "s" : ""}` : ""}${skippedCount ? `, with ${skippedCount} unreadable row${skippedCount !== 1 ? "s" : ""} ignored` : ""}. GPA calculated automatically below.`,
       });
       clearImage({ preserveStatus: true });
     } catch (err: unknown) {
