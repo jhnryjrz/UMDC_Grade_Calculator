@@ -123,6 +123,44 @@ function getValidGradeUnitPair(values: unknown[]): Pick<ExtractedEntry, "grade" 
   return null;
 }
 
+function getArrayValue(record: Record<string, unknown>, keys: string[]): unknown[] | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (Array.isArray(value)) return value;
+  }
+
+  return null;
+}
+
+function normalizeColumnarEntries(record: Record<string, unknown>): ExtractedEntry[] {
+  const gradeValues = getArrayValue(record, ["grade", "grades", "finalGrade", "finalGrades", "final_grade", "final_grades"]);
+  const unitValues = getArrayValue(record, ["unit", "units", "credit", "credits", "creditUnit", "creditUnits", "credit_unit", "credit_units"]);
+  if (!gradeValues || !unitValues) return [];
+
+  const codeValues = getArrayValue(record, ["code", "codes", "courseCode", "courseCodes", "course_code", "course_codes"]);
+  const subjectValues = getArrayValue(record, ["subject", "subjects", "title", "titles", "course", "courses"]);
+  const length = Math.min(gradeValues.length, unitValues.length);
+  const entries: ExtractedEntry[] = [];
+
+  for (let index = 0; index < length; index += 1) {
+    const grade = coerceNumber(gradeValues[index]);
+    const unit = coerceNumber(unitValues[index]);
+    if (grade === null || unit === null) continue;
+
+    const code = codeValues?.[index];
+    const subject = subjectValues?.[index];
+
+    entries.push({
+      code: typeof code === "string" ? code : undefined,
+      subject: typeof subject === "string" ? subject : undefined,
+      grade,
+      unit,
+    });
+  }
+
+  return entries;
+}
+
 function normalizeExtractedRow(row: unknown): ExtractedEntry | null {
   if (Array.isArray(row)) {
     const pair = getValidGradeUnitPair(row);
@@ -184,6 +222,25 @@ function normalizeExtractedRow(row: unknown): ExtractedEntry | null {
 }
 
 function normalizeExtractedEntries(parsed: unknown): ExtractedEntry[] {
+  if (Array.isArray(parsed) && parsed.every((item) => coerceNumber(item) !== null)) {
+    const entries: ExtractedEntry[] = [];
+
+    for (let i = 0; i < parsed.length - 1; i += 2) {
+      const pair = getValidGradeUnitPair([parsed[i], parsed[i + 1]]);
+      if (pair) entries.push(pair);
+    }
+
+    return entries;
+  }
+
+  if (isRecord(parsed)) {
+    const columnarEntries = normalizeColumnarEntries(parsed);
+    if (columnarEntries.length) return columnarEntries;
+
+    const singleEntry = normalizeExtractedRow(parsed);
+    if (singleEntry) return [singleEntry];
+  }
+
   const rows = Array.isArray(parsed)
     ? parsed
     : isRecord(parsed) && Array.isArray(parsed.entries)
@@ -200,6 +257,10 @@ function normalizeExtractedEntries(parsed: unknown): ExtractedEntry[] {
                 ? parsed.results
                 : isRecord(parsed) && Array.isArray(parsed.data)
                   ? parsed.data
+                  : isRecord(parsed) && Array.isArray(parsed.gradeUnitPairs)
+                    ? parsed.gradeUnitPairs
+                    : isRecord(parsed) && Array.isArray(parsed.grade_unit_pairs)
+                      ? parsed.grade_unit_pairs
                   : [];
 
   return rows.flatMap((row) => {
@@ -409,10 +470,11 @@ CRITICAL RULES:
 4. Exclude non-numeric grades (e.g., "INC", "DRP") and text like subject names. Ignore overall GPA/GWA summaries or total units. Extract ONLY individual subject rows.
 5. When you see two numbers at the end of a subject row (or standing alone without headers): The LEFT number is ALWAYS the Grade, and the RIGHT number is ALWAYS the Units.
 6. When screenshots overlap, the same subject row may appear in multiple images. Return that subject ONLY ONCE.
-7. For UMDC/student portal screenshots, rows usually look like: code, subject title, grade, units. Extract those rows even when no column headers are visible.
-8. If a screenshot is cropped and only shows the grade/unit columns, still extract every visible row as {"grade": number, "unit": number}. Leave code and subject out.
-9. Do not reject rows just because the subject title is cut off, the browser UI is visible, or a notification overlaps the page.
-10. Return ONLY the raw JSON array.`,
+7. Return ONE JSON object PER SUBJECT ROW. Never summarize multiple rows into one object. Never return arrays of grades/units inside a single object.
+8. For UMDC/student portal screenshots, rows usually look like: code, subject title, grade, units. Extract those rows even when no column headers are visible.
+9. If a screenshot is cropped and only shows the grade/unit columns, still extract every visible row as {"grade": number, "unit": number}. Leave code and subject out.
+10. Do not reject rows just because the subject title is cut off, the browser UI is visible, or a notification overlaps the page.
+11. Return ONLY the raw JSON array.`,
                 },
               ],
             },
