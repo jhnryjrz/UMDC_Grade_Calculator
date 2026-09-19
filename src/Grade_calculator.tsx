@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Trash2,
   Pencil,
@@ -14,6 +14,9 @@ import {
   ScanLine,
   HelpCircle,
   Key,
+  Moon,
+  Sun,
+  ShieldCheck,
 } from "lucide-react";
 
 /* ================================================================
@@ -33,8 +36,10 @@ interface ScanStatus {
 
 interface GPARemark {
   label: string;
-  color: string;
+  tone: "first" | "second" | "third" | "improve";
 }
+
+type Theme = "light" | "dark";
 
 interface ExtractedEntry {
   code?: string;
@@ -53,12 +58,25 @@ const MAX_UNITS = 12;
 ================================================================ */
 function getGPARemark(gpa: number): GPARemark {
   if (gpa <= 4.0 && gpa >= 3.51)
-    return { label: "First Honor", color: "#fbbf24" };
+    return { label: "First Honor", tone: "first" };
   if (gpa <= 3.5 && gpa >= 3.27)
-    return { label: "Second Honor", color: "#a3e635" };
+    return { label: "Second Honor", tone: "second" };
   if (gpa <= 3.26 && gpa >= 3.01)
-    return { label: "Third Honor", color: "#4ade80" };
-  return { label: "Needs Improvement", color: "#f87171" };
+    return { label: "Third Honor", tone: "third" };
+  return { label: "Needs Improvement", tone: "improve" };
+}
+
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+
+  try {
+    const savedTheme = window.localStorage.getItem("umdc-theme");
+    if (savedTheme === "light" || savedTheme === "dark") return savedTheme;
+  } catch {
+    // Fall back to the operating-system preference when storage is unavailable.
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function fileToBase64(file: File): Promise<string> {
@@ -325,7 +343,52 @@ export default function GradeCalculator() {
   const [dragOver, setDragOver] = useState(false);
   const [apikey, setApiKey] = useState<string>("");
   const [showApiInstructions, setShowApiInstructions] = useState(false);
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const helpButtonRef = useRef<HTMLButtonElement>(null);
+  const modalCloseButtonRef = useRef<HTMLButtonElement>(null);
+
+  const isDarkMode = theme === "dark";
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme === "dark" ? "#08111f" : "#f4f8ff");
+
+    try {
+      window.localStorage.setItem("umdc-theme", theme);
+    } catch {
+      // The theme still works for this session when storage is unavailable.
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    if (!showApiInstructions) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    modalCloseButtonRef.current?.focus();
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowApiInstructions(false);
+        window.requestAnimationFrame(() => helpButtonRef.current?.focus());
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showApiInstructions]);
+
+  const closeApiInstructions = () => {
+    setShowApiInstructions(false);
+    window.requestAnimationFrame(() => helpButtonRef.current?.focus());
+  };
 
   /* ── Validation ── */
   const validate = (g: string, u: string): string | null => {
@@ -574,324 +637,206 @@ CRITICAL RULES:
   const remark = gpa ? getGPARemark(parseFloat(gpa)) : null;
 
   return (
-    <div className="min-h-screen bg-bg-dark bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,_rgba(180,148,90,0.13)_0%,_transparent_60%)] bg-[image:var(--background-image-pattern)] flex flex-col items-center px-5 py-12 pb-20 font-dm-sans text-[#e8e0d0] relative">
-      <button 
-        onClick={() => setShowApiInstructions(true)}
-        className="absolute top-5 right-5 p-2.5 bg-white/5 border border-white/10 rounded-full text-white/50 hover:text-gold hover:bg-gold/10 hover:border-gold/30 transition-all z-10 shadow-sm"
-        title="How to get API Key"
-      >
-        <HelpCircle size={20} />
-      </button>
+    <div className="relative min-h-dvh overflow-hidden bg-app text-ink transition-colors duration-200">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_8%,var(--glow-primary),transparent_30%),radial-gradient(circle_at_88%_18%,var(--glow-secondary),transparent_28%)]" aria-hidden="true" />
 
-      {showApiInstructions && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-5 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-bg-dark border border-gold/25 rounded-[20px] w-full max-w-md p-7 relative shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
-            <button 
-              onClick={() => setShowApiInstructions(false)}
-              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X size={16} />
-            </button>
-            <h2 className="font-fraunces text-2xl font-bold text-text-ivory mb-4 flex items-center gap-2.5">
-              <Key size={24} className="text-gold" />
-              Get Google AI Studio API Key
-            </h2>
-            <div className="space-y-4 text-[14px] text-text-muted leading-relaxed">
-              <p>To use the AI grade scanning feature, you need a free API key from Google AI Studio.</p>
-              <ol className="list-decimal list-inside space-y-2.5 ml-1">
-                <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-gold hover:text-gold-light hover:underline transition-colors font-medium">Google AI Studio</a>.</li>
-                <li>Sign in with your Google account.</li>
-                <li>Click on the <strong>"Get API key"</strong> or <strong>"Create API key"</strong> button.</li>
-                <li>Create a new key in a new or existing project.</li>
-                <li>Copy the generated key and paste it into the API KEY input field here.</li>
-              </ol>
-              <p className="text-xs text-white/30 pt-3 border-t border-white/5 mt-5">Note: Your API key is stored locally in your browser and is never sent to our servers.</p>
+      <div className="relative mx-auto w-full max-w-[1180px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-9">
+        <nav className="mb-10 flex items-center justify-between" aria-label="Utility navigation">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-fill text-white shadow-[0_8px_24px_var(--shadow-primary)]">
+              <GraduationCap size={21} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold tracking-tight">UMDC Grade Calculator</p>
+              <p className="text-xs text-muted">Student grade workspace</p>
             </div>
-            <button 
-              onClick={() => setShowApiInstructions(false)}
-              className="w-full mt-6 bg-gold/10 border border-gold/35 rounded-xl p-[13px] font-dm-sans text-[14px] font-semibold text-gold-light transition-all hover:bg-gold/[0.18] hover:-translate-y-[1px]"
-            >
-              Got it
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button ref={helpButtonRef} type="button" className="icon-button" onClick={() => setShowApiInstructions(true)} aria-label="How to get a Google AI Studio API key" title="API key help">
+              <HelpCircle size={19} aria-hidden="true" />
+            </button>
+            <button type="button" className="icon-button" onClick={() => setTheme(isDarkMode ? "light" : "dark")} aria-label={`Switch to ${isDarkMode ? "light" : "dark"} mode`} aria-pressed={isDarkMode} title={`Switch to ${isDarkMode ? "light" : "dark"} mode`}>
+              {isDarkMode ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}
             </button>
           </div>
-        </div>
-      )}
+        </nav>
 
-      <header className="flex flex-col items-center gap-3 mb-10">
-        <div className="flex items-center gap-[7px] bg-gold/10 border border-gold/25 rounded-full px-3.5 pl-2.5 py-1 text-[11px] font-medium tracking-[0.08em] uppercase text-gold">
-          <GraduationCap size={12} /> UMDC GRADING SYSTEM
-        </div>
-        <h1 className="font-fraunces text-4xl sm:text-5xl lg:text-6xl font-bold text-text-ivory tracking-tight leading-[1.05] text-center">
-          Grade
-          <br />
-          <em className="italic text-gold">Calculator</em>
-        </h1>
-        <p className="text-[13px] text-text-muted tracking-wide">Weighted GPA · 4.0 highest · 1.0 failing</p>
-      </header>
+        <header className="mb-8 max-w-3xl sm:mb-10">
+          <div className="eyebrow mb-4"><Sparkles size={13} aria-hidden="true" />Simple, accurate, student-friendly</div>
+          <h1 className="max-w-2xl text-balance text-4xl font-bold leading-[1.08] tracking-[-0.035em] sm:text-5xl lg:text-[58px]">
+            Calculate your GPA with <span className="text-primary">less guesswork.</span>
+          </h1>
+          <p className="mt-4 max-w-2xl text-pretty text-[15px] leading-7 text-muted sm:text-base">
+            Add grades manually or scan your screenshots with AI. Your weighted result uses the familiar 4.0 grading scale.
+          </p>
+        </header>
 
-      <div className="w-full max-w-[520px] bg-white/[0.03] border border-white/[0.08] rounded-[20px] p-7 backdrop-blur-xl">
-        {!imagePreviews.length ? (
-          <div
-            className={`group relative border-[1.5px] border-dashed rounded-2xl px-5 pt-[26px] pb-[22px] flex flex-col items-center gap-2.5 transition-all duration-200 mb-5 overflow-hidden bg-gold/[0.025] 
-              ${!apikey ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
-              ${dragOver && apikey ? "border-gold/65 bg-gold/7 shadow-[0_0_0_4px_rgba(180,148,90,0.06)]" : "border-gold/30"} 
-              ${apikey ? "hover:border-gold/65 hover:bg-gold/7 hover:shadow-[0_0_0_4px_rgba(180,148,90,0.06)]" : ""}`}
-            onDragOver={(e) => { e.preventDefault(); if (apikey) setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { if (!apikey) { e.preventDefault(); return; } handleDrop(e); }}
-            onClick={() => {
-              if (!apikey) {
-                setScanStatus({
-                  type: "error",
-                  msg: "Please enter your API Key below first before uploading an image.",
-                });
-              }
-            }}
-          >
-            {/* Corner decorations */}
-            <div className={`absolute top-2 left-2 w-[18px] h-[18px] border-t-2 border-l-2 rounded-tl-[3px] transition-colors ${dragOver && apikey ? "border-gold/80" : "border-gold/35"} ${apikey ? "group-hover:border-gold/80" : ""}`} />
-            <div className={`absolute bottom-2 right-2 w-[18px] h-[18px] border-b-2 border-r-2 rounded-br-[3px] transition-colors ${dragOver && apikey ? "border-gold/80" : "border-gold/35"} ${apikey ? "group-hover:border-gold/80" : ""}`} />
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className={`absolute inset-0 opacity-0 w-full h-full text-[0] ${!apikey ? "pointer-events-none" : "cursor-pointer"}`}
-              onChange={(e) => handleImageSelect(e.target.files)}
-              disabled={!apikey}
-            />
-            <div className="w-12 h-12 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center color-gold mb-0.5">
-              <ImageUp size={22} className="text-gold" />
+        <main className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(380px,0.92fr)]">
+          <section className="panel p-5 sm:p-7" aria-labelledby="grade-entry-title">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="section-kicker">Grade input</p>
+                <h2 id="grade-entry-title" className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Add your grades</h2>
+                <p className="mt-1.5 text-sm leading-6 text-muted">Scan a screenshot or enter each subject yourself.</p>
+              </div>
+              <span className="hidden rounded-full bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary sm:inline-flex">4.0 scale</span>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-widest uppercase text-gold bg-gold/10 border border-gold/[0.22] rounded-full px-2.5 py-0.75">
-              <Sparkles size={9} /> AI Powered
-            </span>
-            <span className="text-sm font-semibold text-text-ivory text-center">
-              {!apikey ? "Enter API Key to use Scanner" : `Upload up to ${MAX_IMAGE_UPLOADS} grade screenshots`}
-            </span>
-            <span className="text-[11px] text-text-muted text-center leading-relaxed">
-              Drag & drop or click to browse
-              <br />
-              CRS · SAIS · MyUSTe · report cards · transcripts
-            </span>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3 mb-4">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {imagePreviews.map((preview, index) => (
-                <div key={preview} className="relative rounded-xl overflow-hidden border border-gold/[0.22] aspect-[4/3]">
-                  <img src={preview} className="w-full h-full object-cover block" alt={`Grade screenshot ${index + 1}`} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-bg-dark/90 via-transparent to-transparent flex items-end p-2.5">
-                    <span className="text-[10px] text-ivory/70 flex-1 truncate">{imageFiles[index]?.name}</span>
+
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="field-label" htmlFor="api-key">Google AI API key</label>
+                <button type="button" className="text-link" onClick={() => setShowApiInstructions(true)}>How do I get one?</button>
+              </div>
+              <div className="relative">
+                <Key className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" size={17} aria-hidden="true" />
+                <input id="api-key" className="field field-with-icon" type="password" placeholder="Paste your Google AI Studio key" value={apikey} onChange={(event) => setApiKey(event.target.value)} autoComplete="off" spellCheck={false} />
+              </div>
+              <p className="mt-2 flex items-start gap-1.5 text-xs leading-5 text-muted">
+                <ShieldCheck className="mt-0.5 shrink-0 text-primary" size={14} aria-hidden="true" />Used only in your browser to send images directly to Google AI.
+              </p>
+            </div>
+
+            <div className="mb-7">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold">Scan grade screenshots</h3>
+                <span className="text-xs text-muted">Up to {MAX_IMAGE_UPLOADS} images</span>
+              </div>
+
+              {!imagePreviews.length ? (
+                <div
+                  className={`drop-zone ${dragOver && apikey ? "is-dragging" : ""} ${!apikey ? "is-disabled" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-disabled={!apikey}
+                  aria-label={apikey ? "Upload grade screenshots" : "Enter an API key before uploading screenshots"}
+                  onDragOver={(event) => { event.preventDefault(); if (apikey) setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(event) => { if (!apikey) { event.preventDefault(); return; } handleDrop(event); }}
+                  onClick={() => { if (apikey) fileInputRef.current?.click(); else setScanStatus({ type: "error", msg: "Enter your API key before uploading a screenshot." }); }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    if (apikey) fileInputRef.current?.click();
+                    else setScanStatus({ type: "error", msg: "Enter your API key before uploading a screenshot." });
+                  }}
+                >
+                  <input ref={fileInputRef} id="grade-screenshots" type="file" accept="image/*" multiple className="sr-only" onChange={(event) => handleImageSelect(event.target.files)} disabled={!apikey} aria-label="Select grade screenshots" />
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary"><ImageUp size={22} aria-hidden="true" /></span>
+                  <div>
+                    <p className="text-sm font-semibold">{apikey ? "Drop screenshots here" : "Add your API key first"}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted">{apikey ? "or click to browse PNG, JPG, and WebP files" : "The scanner unlocks once a key is entered"}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                    {imagePreviews.map((preview, index) => (
+                      <div key={preview} className="relative aspect-[4/3] overflow-hidden rounded-xl border border-border bg-surface-subtle">
+                        <img src={preview} className="h-full w-full object-cover" alt={`Grade screenshot ${index + 1}`} />
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 to-transparent p-2.5 pt-7"><span className="block truncate text-[10px] font-medium text-white">{imageFiles[index]?.name}</span></div>
+                      </div>
+                    ))}
+                    <button type="button" className="clear-upload-button" onClick={() => clearImage()} aria-label="Clear selected screenshots"><X size={17} aria-hidden="true" /><span>Clear</span></button>
+                  </div>
+                  <button type="button" className="secondary-button w-full" onClick={scanImage} disabled={scanning || !apikey}>
+                    {scanning ? <Loader2 size={17} className="animate-spin" aria-hidden="true" /> : <ScanLine size={17} aria-hidden="true" />}
+                    {scanning ? "Reading your grades…" : "Scan and auto-calculate"}
+                  </button>
+                </div>
+              )}
+
+              {scanStatus && (
+                <div className={`status-message mt-3 ${scanStatus.type === "success" ? "status-success" : "status-error"}`} role="status" aria-live="polite">
+                  {scanStatus.type === "success" ? <Check size={16} aria-hidden="true" /> : <AlertCircle size={16} aria-hidden="true" />}<span>{scanStatus.msg}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="divider-label mb-5"><span>or enter manually</span></div>
+            <form onSubmit={(event) => { event.preventDefault(); addToList(); }} noValidate>
+              <div className="grid grid-cols-[minmax(0,1fr)_96px_48px] gap-2.5 sm:grid-cols-[minmax(0,1fr)_120px_48px]">
+                <div>
+                  <label className="field-label" htmlFor="subject-grade">Subject grade</label>
+                  <input id="subject-grade" className="field mt-2 font-data" type="text" inputMode="decimal" placeholder="1.75" value={grade} onChange={(event) => { setGrade(event.target.value); setFieldError(""); }} aria-invalid={Boolean(fieldError)} aria-describedby={fieldError ? "grade-entry-error" : undefined} />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="subject-units">Units</label>
+                  <input id="subject-units" className="field mt-2 font-data" type="text" inputMode="decimal" placeholder="3" value={unit} onChange={(event) => { setUnit(event.target.value); setFieldError(""); }} aria-invalid={Boolean(fieldError)} aria-describedby={fieldError ? "grade-entry-error" : undefined} />
+                </div>
+                <div className="flex items-end"><button type="submit" className="primary-icon-button" aria-label="Add subject" title="Add subject"><Plus size={20} strokeWidth={2.5} aria-hidden="true" /></button></div>
+              </div>
+              {fieldError && <p id="grade-entry-error" className="mt-2 flex items-center gap-1.5 text-xs font-medium text-danger" role="alert"><AlertCircle size={14} aria-hidden="true" />{fieldError}</p>}
+            </form>
+          </section>
+
+          <section className="panel flex min-h-[520px] flex-col p-5 sm:p-7" aria-labelledby="subjects-title">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="section-kicker">Summary</p>
+                <h2 id="subjects-title" className="mt-1 flex items-center gap-2 text-xl font-semibold tracking-tight sm:text-2xl">Your subjects<span className="count-badge" aria-label={`${gradeList.length} subjects`}>{gradeList.length}</span></h2>
+              </div>
+              {gradeList.length > 0 && <span className="mt-1 text-xs text-muted">{gradeList.reduce((sum, item) => sum + item.unit, 0)} total units</span>}
+            </div>
+
+            <div className={`result-card mb-5 ${gpa && remark ? "has-result" : ""}`} aria-live="polite">
+              {gpa && remark ? (
+                <><div><p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Weighted GPA</p><p className="mt-1 font-data text-4xl font-semibold tracking-[-0.05em] sm:text-5xl">{gpa}</p></div><span className={`remark-badge remark-${remark.tone}`}>{remark.label}</span></>
+              ) : (
+                <><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><GraduationCap size={20} aria-hidden="true" /></span><div><p className="text-sm font-semibold">Your GPA will appear here</p><p className="mt-1 text-xs leading-5 text-muted">Add at least one subject, then calculate your weighted result.</p></div></>
+              )}
+            </div>
+
+            {gradeList.length > 0 && <div className="subject-grid mb-2 border-b border-border px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-muted" aria-hidden="true"><span>Grade</span><span>Units</span><span className="text-right">Actions</span></div>}
+            <div className="no-scrollbar flex max-h-[385px] min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5">
+              {gradeList.length === 0 ? (
+                <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface-subtle px-6 py-12 text-center">
+                  <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary"><BookOpen size={21} aria-hidden="true" /></span>
+                  <p className="text-sm font-semibold">No subjects added yet</p><p className="mt-1.5 max-w-[240px] text-xs leading-5 text-muted">Use the form or scanner to build your grade list.</p>
+                </div>
+              ) : gradeList.map((item) => (
+                <div key={item.id} className={`subject-grid subject-row ${item.fromAI ? "is-scanned" : ""}`}>
+                  <div className="min-w-0">
+                    {editingId === item.id ? <input className="compact-field font-data" value={editGrade} inputMode="decimal" aria-label="Edit grade" autoFocus onChange={(event) => setEditGrade(event.target.value)} /> : <span className="flex items-center gap-2 font-data text-lg font-semibold tracking-tight">{item.grade.toFixed(2)}{item.fromAI && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" title="AI scanned" aria-label="AI scanned" />}</span>}
+                  </div>
+                  <div className="min-w-0">
+                    {editingId === item.id ? <input className="compact-field font-data" value={editUnit} inputMode="decimal" aria-label="Edit units" onChange={(event) => setEditUnit(event.target.value)} /> : <span className="text-xs text-muted">{item.unit} {item.unit === 1 ? "unit" : "units"}</span>}
+                  </div>
+                  <div className="flex justify-end gap-1.5">
+                    {editingId === item.id ? (
+                      <><button type="button" className="row-action is-confirm" onClick={() => confirmEdit(item.id)} aria-label="Save subject changes" title="Save changes"><Check size={15} aria-hidden="true" /></button><button type="button" className="row-action is-danger" onClick={cancelEdit} aria-label="Cancel editing" title="Cancel editing"><X size={15} aria-hidden="true" /></button></>
+                    ) : (
+                      <><button type="button" className="row-action" onClick={() => startEdit(item)} aria-label={`Edit grade ${item.grade.toFixed(2)}`} title="Edit subject"><Pencil size={15} aria-hidden="true" /></button><button type="button" className="row-action is-danger" onClick={() => removeFromList(item.id)} aria-label={`Delete grade ${item.grade.toFixed(2)}`} title="Delete subject"><Trash2 size={15} aria-hidden="true" /></button></>
+                    )}
                   </div>
                 </div>
               ))}
-              <button className="bg-red-500/15 border border-red-500/25 rounded-xl min-h-[84px] flex flex-col items-center justify-center gap-1 cursor-pointer text-red-400 transition-colors hover:bg-red-500/[0.28]" onClick={() => clearImage()}>
-                <X size={15} />
-                <span className="text-[10px] font-semibold uppercase tracking-wider">Clear</span>
-              </button>
             </div>
-            <button
-              className="w-full bg-gold/10 border-[1.5px] border-gold/35 rounded-[13px] p-[13px_16px] font-dm-sans text-[13px] font-semibold text-gold-light cursor-pointer flex items-center justify-center gap-2 transition-all hover:bg-gold/[0.18] hover:border-gold/65 hover:-translate-y-[1px] hover:shadow-[0_4px_20px_rgba(180,148,90,0.18)] active:translate-y-0 disabled:opacity-40 disabled:cursor-not-allowed"
-              onClick={scanImage}
-              disabled={scanning || !apikey}
-            >
-              {scanning ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" /> Reading your grades…
-                </>
-              ) : (
-                <>
-                  <ScanLine size={15} /> Scan &amp; Auto-Calculate
-                </>
-              )}
-            </button>
-          </div>
-        )}
+            <button type="button" className="primary-button mt-5 w-full" onClick={() => calculateGPA()} disabled={gradeList.length === 0}>Calculate weighted GPA</button>
+          </section>
+        </main>
 
-        {scanStatus && (
-          <div className={`p-[11px_14px] rounded-[11px] text-xs flex items-start gap-2.5 mb-4.5 leading-relaxed ${scanStatus.type === "success" ? "bg-green-500/7 border border-green-500/20 text-green-300" : "bg-red-500/7 border border-red-500/20 text-red-300"}`}>
-            <span className="shrink-0 mt-0.5">
-              {scanStatus.type === "success" ? <Check size={14} /> : <AlertCircle size={14} />}
-            </span>
-            <span>{scanStatus.msg}</span>
-          </div>
-        )}
-
-        <div className="flex items-center gap-3 mb-[22px]">
-          <div className="flex-1 h-[1px] bg-white/[0.07]" />
-          <span className="text-[10px] font-semibold tracking-widest uppercase text-white/[0.22] whitespace-nowrap">or enter manually</span>
-          <div className="flex-1 h-[1px] bg-white/[0.07]" />
-        </div>
-
-        <div className="mb-6">
-          <div className="grid grid-cols-[1fr_100px_48px] gap-2.5 mb-1.5 px-0.5">
-            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">API KEY</span>
-          </div>
-          <div className="mb-1.5">
-            <input
-              className="bg-white/5 border border-white/10 rounded-xl p-[13px_16px] font-dm-sans text-[15px] text-text-ivory outline-none transition-all w-full placeholder:text-white/[0.18] focus:border-gold/[0.6] focus:bg-gold/[0.06] focus:shadow-[0_0_0_3px_rgba(180,148,90,0.1)]"
-              type="text"
-              placeholder="e.g. Alza..."
-              value={apikey}
-              onChange={(e) => setApiKey(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addToList()}
-            />
-          </div>
-          <div className="grid grid-cols-[1fr_100px_48px] gap-2.5 mb-1.5 px-0.5">
-            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Subject Grade</span>
-            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Units</span>
-            <span />
-          </div>
-          <div className="grid grid-cols-[1fr_100px_48px] gap-2.5">
-            <input
-              className="bg-white/5 border border-white/10 rounded-xl p-[13px_16px] font-dm-sans text-[15px] text-text-ivory outline-none transition-all w-full placeholder:text-white/[0.18] focus:border-gold/[0.6] focus:bg-gold/[0.06] focus:shadow-[0_0_0_3px_rgba(180,148,90,0.1)]"
-              type="text"
-              inputMode="decimal"
-              placeholder="e.g. 1.75"
-              value={grade}
-              onChange={(e) => { setGrade(e.target.value); setFieldError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && addToList()}
-            />
-            <input
-              className="bg-white/5 border border-white/10 rounded-xl p-[13px_16px] font-dm-sans text-[15px] text-text-ivory outline-none transition-all w-full placeholder:text-white/[0.18] focus:border-gold/[0.6] focus:bg-gold/[0.06] focus:shadow-[0_0_0_3px_rgba(180,148,90,0.1)]"
-              type="text"
-              inputMode="numeric"
-              placeholder="e.g. 3"
-              value={unit}
-              onChange={(e) => { setUnit(e.target.value); setFieldError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && addToList()}
-            />
-            <button
-              className="bg-gold border-none rounded-xl w-12 h-12 flex items-center justify-center cursor-pointer text-bg-dark transition-all hover:bg-gold-light hover:scale-[1.07] hover:shadow-[0_4px_20px_rgba(180,148,90,0.4)] active:scale-[0.97]"
-              onClick={addToList}
-              title="Add subject"
-            >
-              <Plus size={20} strokeWidth={2.5} />
-            </button>
-          </div>
-          {fieldError && (
-            <div className="text-xs text-red-400 mt-2 flex items-center gap-1.25">
-              <X size={12} /> {fieldError}
-            </div>
-          )}
-        </div>
-
-        <div className="h-[1px] bg-white/[0.07] mb-5" />
-
-        <div className="flex items-center text-[10px] font-bold tracking-widest uppercase text-white/30 mb-3">
-          Subjects
-          {gradeList.length > 0 && (
-            <span className="inline-flex items-center justify-center bg-gold/15 text-gold rounded-full text-[10px] font-bold w-[19px] h-[19px] ml-[7px]">
-              {gradeList.length}
-            </span>
-          )}
-        </div>
-
-        {gradeList.length > 0 && (
-          <div className="grid grid-cols-[1fr_90px_80px] gap-2.5 px-1 pb-2.5 mb-1 border-b border-white/[0.06]">
-            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Grade</span>
-            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30">Units</span>
-            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/30 text-right">Actions</span>
-          </div>
-        )}
-
-        <div className="max-h-[290px] overflow-y-auto flex flex-col gap-2 pr-0.75 no-scrollbar">
-          {gradeList.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2.5 py-9 px-5 text-white/20">
-              <div className="w-[46px] h-[46px] border border-dashed border-gold/20 rounded-full flex items-center justify-center text-gold/30">
-                <BookOpen size={20} />
-              </div>
-              <p className="text-[13px]">No subjects added yet.</p>
-              <p className="text-[11px] opacity-50">Upload a screenshot or enter grades manually</p>
-            </div>
-          ) : (
-            gradeList.map((item) => (
-              <div
-                key={item.id}
-                className={`grid grid-cols-[1fr_90px_80px] gap-2.5 items-center bg-white/[0.03] border border-white/[0.07] rounded-xl p-[11px_14px] transition-all hover:bg-gold/[0.05] hover:border-gold/20 animate-in fade-in slide-in-from-top-2 duration-200 ${item.fromAI ? "border-l-[2.5px] border-l-gold/50 bg-gold/[0.04]" : ""}`}
-              >
-                <div>
-                  {editingId === item.id ? (
-                    <input
-                      className="bg-gold/10 border border-gold/35 rounded-lg p-1.5 font-fraunces text-base font-semibold text-text-ivory outline-none w-full"
-                      value={editGrade}
-                      autoFocus
-                      onChange={(e) => setEditGrade(e.target.value)}
-                    />
-                  ) : (
-                    <span className="font-fraunces text-xl font-semibold text-text-ivory tracking-tight flex items-center gap-1.5">
-                      {item.grade.toFixed(2)}
-                      {item.fromAI && <span className="w-1.25 h-1.25 rounded-full bg-gold shrink-0 opacity-70" title="AI scanned" />}
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  {editingId === item.id ? (
-                    <input
-                      className="bg-gold/10 border border-gold/35 rounded-lg p-1.5 font-dm-sans text-[13px] text-text-ivory outline-none w-full"
-                      value={editUnit}
-                      onChange={(e) => setEditUnit(e.target.value)}
-                    />
-                  ) : (
-                    <span className="text-[13px] text-white/50">
-                      {item.unit} {item.unit === 1 ? "unit" : "units"}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex gap-1.5 justify-end">
-                  {editingId === item.id ? (
-                    <>
-                      <button className="bg-white/5 border border-white/[0.08] rounded-lg w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-white/40 transition-colors hover:text-green-400 hover:bg-green-400/10 hover:border-green-400/20" onClick={() => confirmEdit(item.id)}>
-                        <Check size={13} />
-                      </button>
-                      <button className="bg-white/5 border border-white/[0.08] rounded-lg w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-white/40 transition-colors hover:text-red-400 hover:bg-red-400/10 hover:border-red-400/20" onClick={cancelEdit}>
-                        <X size={13} />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button className="bg-white/5 border border-white/[0.08] rounded-lg w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-white/40 transition-colors hover:text-text-ivory hover:bg-white/10" onClick={() => startEdit(item)}>
-                        <Pencil size={13} />
-                      </button>
-                      <button className="bg-white/5 border border-white/[0.08] rounded-lg w-[30px] h-[30px] flex items-center justify-center cursor-pointer text-white/40 transition-colors hover:text-red-400 hover:bg-red-400/10 hover:border-red-400/20" onClick={() => removeFromList(item.id)}>
-                        <Trash2 size={13} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <button
-          className="w-full bg-gradient-to-br from-gold to-gold-light border-none rounded-xl p-[15px] font-fraunces text-[17px] font-semibold text-bg-dark cursor-pointer transition-all tracking-tight mt-5 hover:opacity-90 hover:-translate-y-[1px] hover:shadow-[0_8px_32px_rgba(180,148,90,0.38)] active:translate-y-0 disabled:opacity-25 disabled:cursor-not-allowed"
-          onClick={() => calculateGPA()}
-          disabled={gradeList.length === 0}
-        >
-          Calculate GPA
-        </button>
+        <footer className="mt-7 flex flex-col gap-1 text-xs leading-5 text-muted sm:flex-row sm:items-center sm:justify-between"><p>Weighted GPA · 4.0 highest · 1.0 failing</p><p>Built for quick academic planning.</p></footer>
       </div>
 
-      {gpa && remark && (
-        <div className="w-full max-w-[520px] mt-4 bg-gold/[0.07] border border-gold/25 rounded-[20px] p-[34px_28px_28px] flex flex-col items-center gap-1 animate-in fade-in slide-in-from-bottom-4 duration-400 ease-out">
-          <span className="text-[10px] font-bold tracking-widest uppercase text-gold/65 mb-1.5">Your Weighted GPA</span>
-          <span className="font-fraunces text-6xl sm:text-7xl lg:text-8xl font-bold leading-none tracking-tight text-text-ivory">{gpa}</span>
-          <span
-            className="text-[13px] font-semibold mt-3 px-4 py-1.25 rounded-full bg-gold/10 border border-gold/[0.18]"
-            style={{ color: remark.color, borderColor: `${remark.color}30` }}
-          >
-            {remark.label}
-          </span>
-          <span className="mt-2 text-xs text-white/30">
-            {gradeList.length} subject{gradeList.length !== 1 ? "s" : ""} · {gradeList.reduce((s, i) => s + i.unit, 0)} total units
-          </span>
+      {showApiInstructions && (
+        <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeApiInstructions(); }}>
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="api-help-title" aria-describedby="api-help-description">
+            <button ref={modalCloseButtonRef} type="button" className="icon-button absolute right-4 top-4" onClick={closeApiInstructions} aria-label="Close API key instructions"><X size={18} aria-hidden="true" /></button>
+            <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-soft text-primary"><Key size={21} aria-hidden="true" /></span>
+            <h2 id="api-help-title" className="pr-10 text-xl font-semibold tracking-tight sm:text-2xl">Get a Google AI Studio API key</h2>
+            <p id="api-help-description" className="mt-2 text-sm leading-6 text-muted">The AI scanner needs a free key to read grades from screenshots.</p>
+            <ol className="mt-5 space-y-3 text-sm leading-6 text-muted">
+              <li className="instruction-step"><span>1</span><p>Open <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-link">Google AI Studio</a> and sign in.</p></li>
+              <li className="instruction-step"><span>2</span><p>Select <strong className="text-ink">Get API key</strong>, then create a key in a new or existing project.</p></li>
+              <li className="instruction-step"><span>3</span><p>Copy the key and paste it into the API key field in the calculator.</p></li>
+            </ol>
+            <div className="mt-5 flex items-start gap-2 rounded-xl border border-border bg-surface-subtle p-3 text-xs leading-5 text-muted"><ShieldCheck className="mt-0.5 shrink-0 text-primary" size={15} aria-hidden="true" />The key stays in this browser session and is sent only to Google AI when you scan images.</div>
+            <button type="button" className="primary-button mt-6 w-full" onClick={closeApiInstructions}>Got it</button>
+          </div>
         </div>
       )}
     </div>
   );
+
 }

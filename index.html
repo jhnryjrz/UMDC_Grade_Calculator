@@ -4,7 +4,23 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>grade-calculator</title>
+    <meta name="description" content="Calculate your weighted GPA manually or scan grade screenshots with AI." />
+    <meta name="theme-color" content="#f4f8ff" />
+    <script>
+      (() => {
+        try {
+          const savedTheme = localStorage.getItem("umdc-theme");
+          const theme = savedTheme === "light" || savedTheme === "dark"
+            ? savedTheme
+            : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        } catch {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
+    <title>UMDC Grade Calculator</title>
   </head>
   <body>
     <div id="root"></div>
