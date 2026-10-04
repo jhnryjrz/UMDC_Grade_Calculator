@@ -1,73 +1,32 @@
-# React + TypeScript + Vite
+# UMDC Grade Calculator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A responsive academic workspace for calculating a weighted GPA from subject grades and units. The calculator supports manual entry and reviewed imports from screenshots.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Requires a Node.js version supported by the installed Vite release.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```sh
+npm ci
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open the local URL printed by Vite.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Use the calculator
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Enter an optional subject name, grade, and units, then choose **Add subject** or press Enter. Saved subjects appear below the form. You can edit or delete each row; **Undo delete** restores the most recently deleted subject. The GPA updates whenever saved subjects change.
+
+Grades can be from 0 to 4, including 0. Units must be greater than 0 and at most 12; decimal units are supported. GPA is the sum of each grade multiplied by its units, divided by total units. Only the displayed result is rounded to two decimal places. The app does not determine honors eligibility.
+
+To import screenshots, choose **Import screenshots**, select up to five PNG, JPG, WebP, or GIF images, and enter a Google AI Studio API key. Choose **Scan screenshots**, then review the extracted rows. You can correct values, exclude rows, and opt in to possible duplicates. The grades affect your GPA only when you choose **Add subjects**. Closing or cancelling the dialog discards the scan draft.
+
+The API key is kept only in the open dialog's memory. The browser sends the key and selected images directly to Google when you scan. Grades are kept in the current page session; there is no account or cloud save.
+
+## Checks
+
+```sh
+npm test
+npm run lint
+npm run build
 ```
